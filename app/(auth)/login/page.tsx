@@ -37,7 +37,10 @@ export default function LoginPage() {
       try {
         const res = await fetch("/api/auth/me", { method: "GET" });
         if (res.ok) {
-          const data = await res.json();
+          const contentType = res.headers.get("content-type") ?? "";
+          const data = contentType.includes("application/json")
+            ? ((await res.json()) as { user?: unknown })
+            : {};
           if (data.user) {
             router.replace("/");
             return;
@@ -62,13 +65,16 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/auth/signin", {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") ?? "";
+      const data = contentType.includes("application/json")
+        ? ((await res.json()) as { message?: string; role?: string })
+        : {};
 
       if (!res.ok) {
         throw new Error(data.message || "Login failed");
@@ -76,10 +82,8 @@ export default function LoginPage() {
 
       toast.success("Login successful!");
 
-      if (data.user.role === "admin") {
-        router.push("/admin");
-      } else if (data.user.role === "moderator") {
-        router.push("/moderator");
+      if (data.role === "admin") {
+        router.push("/");
       } else {
         router.push("/user");
       }

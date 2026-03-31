@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
-import { UserRole } from "@/types/roles";
-
-const JWT_SECRET = process.env.JWT_SECRET;
+import { verifyAuthToken } from "@/lib/jwt";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -18,11 +15,7 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      if (!JWT_SECRET) throw new Error("JWT_SECRET missing");
-      const secret = new TextEncoder().encode(JWT_SECRET);
-      const { payload } = await jwtVerify(token, secret);
-      const userRole = payload.role as UserRole;
-
+      await verifyAuthToken(token);
       return NextResponse.next();
     } catch (err) {
       console.error("Middleware JWT Error:", err);

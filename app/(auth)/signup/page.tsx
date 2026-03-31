@@ -75,7 +75,10 @@ export default function SignupPage() {
       try {
         const res = await fetch("/api/auth/me", { method: "GET" });
         if (res.ok) {
-          const data = await res.json();
+          const contentType = res.headers.get("content-type") ?? "";
+          const data = contentType.includes("application/json")
+            ? ((await res.json()) as { user?: unknown })
+            : {};
           if (data.user) {
             router.replace("/");
             return;
@@ -122,7 +125,10 @@ export default function SignupPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") ?? "";
+      const data = contentType.includes("application/json")
+        ? ((await res.json()) as { message?: string })
+        : {};
 
       if (!res.ok) {
         throw new Error(data.message || "Signup failed");

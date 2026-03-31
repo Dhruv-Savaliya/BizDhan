@@ -1,10 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { jwtVerify, JWTPayload } from "jose";
 import { getDb } from "@/lib/database";
-
-const JWT_SECRET = process.env.JWT_SECRET;
+import { verifyAuthToken } from "@/lib/jwt";
 
 export async function getCurrentUserAction() {
   const db = await getDb();
@@ -16,11 +14,7 @@ export async function getCurrentUserAction() {
   }
 
   try {
-    if (!JWT_SECRET) {
-      throw new Error("JWT_SECRET is not defined in environment variables.");
-    }
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const { payload }: { payload: JWTPayload } = await jwtVerify(token, secret);
+    const payload = await verifyAuthToken(token);
     const userId = payload.userId as string;
 
     if (!userId) return null;

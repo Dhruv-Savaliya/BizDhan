@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { SignJWT } from "jose";
 import { getDb } from "@/lib/database";
-
-const JWT_SECRET = process.env.JWT_SECRET;
+import { signAuthToken } from "@/lib/jwt";
 
 export async function POST(request: Request) {
   const db = await getDb();
@@ -35,16 +33,11 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!JWT_SECRET) throw new Error("JWT_SECRET missing");
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const token = await new SignJWT({
+    const token = await signAuthToken({
       userId: user.id,
       email: user.email,
       role: user.role,
-    })
-      .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime("1d")
-      .sign(secret);
+    });
 
     const response = NextResponse.json(
       { message: "Login successful", role: user.role },

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { SignJWT } from "jose";
 import { v4 as uuidv4 } from "uuid";
 import { getDb } from "@/lib/database";
 import { getMongoDb } from "@/lib/database/clients";
@@ -9,8 +8,7 @@ import { UserRole } from "@/types/roles";
 import { getEnabledUserFields } from "@/types/user-schema";
 import type { SignupMode } from "@/types/workspace";
 import { createWorkspacesForSignup } from "@/lib/workspaces";
-
-const JWT_SECRET = process.env.JWT_SECRET;
+import { signAuthToken } from "@/lib/jwt";
 
 export async function POST(request: Request) {
   try {
@@ -84,16 +82,11 @@ export async function POST(request: Request) {
       defaultWorkspaceId: workspaceResult.defaultWorkspaceId,
     });
 
-    if (!JWT_SECRET) throw new Error("JWT_SECRET missing");
-    const secret = new TextEncoder().encode(JWT_SECRET);
-    const token = await new SignJWT({
+    const token = await signAuthToken({
       userId: createdUser.id,
       email: createdUser.email,
       role: createdUser.role,
-    })
-      .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime("1d")
-      .sign(secret);
+    });
 
     const response = NextResponse.json(
       { message: "Signup successful", role: createdUser.role },
@@ -124,4 +117,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-}
+}

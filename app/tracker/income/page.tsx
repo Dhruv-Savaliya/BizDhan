@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,6 +53,7 @@ const itemVariants = {
 };
 
 export default function IncomePage() {
+  const router = useRouter();
   const [items, setItems] = useState<IncomeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -95,6 +97,20 @@ export default function IncomePage() {
       toast.error(message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleLogout() {
+    try {
+      const res = await fetch("/api/auth/signout", { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || "Failed to log out");
+      }
+      router.push("/login");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Failed to log out";
+      toast.error(message);
     }
   }
 
@@ -143,16 +159,27 @@ export default function IncomePage() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -z-10" />
           
           <CardHeader className="px-8 pt-8 pb-6 border-b border-border/50 bg-muted/20">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <TrendingUp className="h-6 w-6 text-primary" aria-hidden />
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <TrendingUp className="h-6 w-6 text-primary" aria-hidden />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-bold tracking-tight">Income</CardTitle>
+                  <CardDescription className="text-base mt-1">
+                    Record revenue and profit-related inflows.
+                  </CardDescription>
+                </div>
               </div>
-              <div>
-                <CardTitle className="text-2xl font-bold tracking-tight">Income</CardTitle>
-                <CardDescription className="text-base mt-1">
-                  Record revenue and profit-related inflows.
-                </CardDescription>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-xl text-xs font-semibold"
+                onClick={() => void handleLogout()}
+              >
+                Log out
+              </Button>
             </div>
           </CardHeader>
 

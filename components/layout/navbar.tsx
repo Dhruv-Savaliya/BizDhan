@@ -100,7 +100,10 @@ export function Navbar() {
           setUser(null);
           return;
         }
-        const data = (await res.json()) as { user: User | null };
+        const contentType = res.headers.get("content-type") ?? "";
+        const data = contentType.includes("application/json")
+          ? ((await res.json()) as { user: User | null })
+          : { user: null };
         setUser(data.user);
       } catch {
         setUser(null);

@@ -6,6 +6,7 @@ import { SME_TRACKER_NAV } from "@/constants/tracker/sme-nav";
 import { PERSONAL_TRACKER_NAV } from "@/constants/tracker/personal-nav";
 import { ChevronRight } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { TrackerLogoutMenu } from "@/components/tracker/tracker-logout";
 
 type NavItem = { href: string; label: string; sub: string | null };
 
@@ -130,6 +131,10 @@ export default async function TrackerLayout({ children }: { children: ReactNode 
                 <span className="text-xs font-medium text-muted-foreground px-2">Theme</span>
                 <ThemeToggle />
               </div>
+            </div>
+
+            <div className="mt-3 px-3">
+              <TrackerLogoutMenu />
             </div>
           </div>
         </aside>
