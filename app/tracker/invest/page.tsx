@@ -71,6 +71,9 @@ export default function InvestPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<InvestmentEntry[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const maxDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
@@ -155,8 +158,8 @@ export default function InvestPage() {
         
         {/* Availability Summary Card */}
         <motion.div variants={sectionVariants} initial="hidden" animate="show">
-          <Card className="glass shadow-lg rounded-2xl border-blue-500/10 overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-[60px] -z-10" />
+          <Card className="glass shadow-lg rounded-2xl border-primary/10 overflow-hidden relative">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[60px] -z-10" />
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -223,13 +226,13 @@ export default function InvestPage() {
 
         {/* Investment Tracker Card */}
         <motion.div variants={sectionVariants} initial="hidden" animate="show" transition={{ delay: 0.1 }}>
-          <Card className="glass shadow-xl rounded-[2rem] border-blue-500/10 overflow-hidden relative">
-            <div className="absolute bottom-0 right-0 w-80 h-80 bg-blue-500/5 rounded-full blur-[80px] -z-10" />
+          <Card className="glass shadow-xl rounded-[2rem] border-primary/10 overflow-hidden relative">
+            <div className="absolute bottom-0 right-0 w-80 h-80 bg-primary/5 rounded-full blur-[80px] -z-10" />
             
             <CardHeader className="px-8 pt-8 pb-6 border-b border-border/50 bg-muted/20">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center">
-                  <PieChart className="h-6 w-6 text-blue-500" aria-hidden />
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <PieChart className="h-6 w-6 text-primary" aria-hidden />
                 </div>
                 <div>
                   <CardTitle className="text-2xl font-bold tracking-tight">Investments</CardTitle>
@@ -346,6 +349,7 @@ export default function InvestPage() {
                             <FormControl>
                               <Input 
                                 type="datetime-local" 
+                                max={maxDateTime}
                                 className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 w-full focus-visible:ring-blue-500/20" 
                                 {...field} 
                                 disabled={submitting} 
@@ -379,7 +383,7 @@ export default function InvestPage() {
                     <div className="flex flex-col sm:flex-row gap-3 pt-2">
                       <Button 
                         type="submit" 
-                        className="bg-blue-500 hover:bg-blue-600 text-white h-11 rounded-xl shadow-md min-w-[140px] font-semibold active:scale-[0.98] transition-all" 
+                        className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 rounded-xl shadow-md min-w-[140px] font-semibold active:scale-[0.98] transition-all" 
                         disabled={submitting}
                       >
                         {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -423,8 +427,8 @@ export default function InvestPage() {
                         className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:border-border"
                       >
                         <div className="flex items-center gap-4 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                            <PieChart className="h-4 w-4 text-blue-500" />
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                            <PieChart className="h-4 w-4 text-primary" />
                           </div>
                           <div className="min-w-0">
                             <div className="truncate font-semibold text-foreground text-base">

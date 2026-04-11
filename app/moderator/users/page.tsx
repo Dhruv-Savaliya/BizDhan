@@ -68,14 +68,14 @@ export default function ModeratorUsersPage() {
   );
 
   return (
-    <main className="min-h-screen bg-secondary/50 p-4 sm:p-6 md:p-8">
+    <main className="min-h-screen bg-background relative pt-24 pb-10 px-4 sm:px-6 md:px-8">
       <div className="mx-auto max-w-7xl">
-        <div className="glass mb-6 flex items-center gap-4 rounded-2xl p-4">
+        <div className="glass mb-6 flex items-center gap-4 rounded-2xl border border-border/50 bg-muted/30 p-4">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold font-serif">Manage Users & Moderators</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Manage Users & Moderators</h1>
             <p className="text-sm text-muted-foreground">Role-safe management without admin accounts.</p>
           </div>
         </div>
@@ -97,7 +97,10 @@ export default function ModeratorUsersPage() {
             pageIndex={pageIndex}
             pageSize={pageSize}
             sorting={sorting}>
-            <Button onClick={() => setCreateUserOpen(true)}>
+            <Button
+              onClick={() => setCreateUserOpen(true)}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            >
               <PlusCircle className="mr-2 h-4 w-4" />
               Create User
             </Button>

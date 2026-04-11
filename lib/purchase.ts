@@ -13,6 +13,8 @@ export function normalizePurchaseInput(input: {
   purchasedAt?: unknown;
   notes?: unknown;
 }) {
+  const now = Date.now();
+
   const itemName = typeof input.itemName === "string" ? input.itemName.trim() : "";
   if (!itemName) throw new Error("Item name is required");
 
@@ -40,10 +42,17 @@ export function normalizePurchaseInput(input: {
   const categoryRaw = typeof input.category === "string" ? input.category : "other";
   const category = categoryRaw as PurchaseCategory;
 
-  const purchasedAt =
-    typeof input.purchasedAt === "string" && input.purchasedAt.trim()
-      ? new Date(input.purchasedAt).toISOString()
-      : new Date().toISOString();
+  let purchasedAt = new Date().toISOString();
+  if (typeof input.purchasedAt === "string" && input.purchasedAt.trim()) {
+    const purchasedAtDate = new Date(input.purchasedAt);
+    if (Number.isNaN(purchasedAtDate.getTime())) {
+      throw new Error("Invalid date");
+    }
+    if (purchasedAtDate.getTime() > now) {
+      throw new Error("Date cannot be in the future");
+    }
+    purchasedAt = purchasedAtDate.toISOString();
+  }
 
   const notes = typeof input.notes === "string" && input.notes.trim() ? input.notes.trim() : undefined;
 

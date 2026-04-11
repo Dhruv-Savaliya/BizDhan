@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -53,10 +52,13 @@ const itemVariants = {
 };
 
 export default function IncomePage() {
-  const router = useRouter();
+  // Sidebar provides logout; tracker page avoids duplicate logout UI.
   const [items, setItems] = useState<IncomeEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const maxDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
@@ -97,20 +99,6 @@ export default function IncomePage() {
       toast.error(message);
     } finally {
       setLoading(false);
-    }
-  }
-
-  async function handleLogout() {
-    try {
-      const res = await fetch("/api/auth/signout", { method: "POST" });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.message || "Failed to log out");
-      }
-      router.push("/login");
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to log out";
-      toast.error(message);
     }
   }
 
@@ -171,15 +159,6 @@ export default function IncomePage() {
                   </CardDescription>
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-xl text-xs font-semibold"
-                onClick={() => void handleLogout()}
-              >
-                Log out
-              </Button>
             </div>
           </CardHeader>
 
@@ -289,6 +268,7 @@ export default function IncomePage() {
                           <FormControl>
                             <Input 
                               type="datetime-local" 
+                              max={maxDateTime}
                               className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 w-full" 
                               {...field} 
                               disabled={submitting} 

@@ -10,6 +10,8 @@ export function normalizeExpenseInput(input: {
   spentAt?: unknown;
   notes?: unknown;
 }) {
+  const now = Date.now();
+
   const amountNum = typeof input.amount === "number" ? input.amount : Number(input.amount);
   if (!Number.isFinite(amountNum) || amountNum <= 0) {
     throw new Error("Amount must be a positive number");
@@ -26,10 +28,17 @@ export function normalizeExpenseInput(input: {
   const merchant = typeof input.merchant === "string" ? input.merchant.trim() : "";
   if (!merchant) throw new Error("Merchant is required");
 
-  const spentAt =
-    typeof input.spentAt === "string" && input.spentAt.trim()
-      ? new Date(input.spentAt).toISOString()
-      : new Date().toISOString();
+  let spentAt = new Date().toISOString();
+  if (typeof input.spentAt === "string" && input.spentAt.trim()) {
+    const spentAtDate = new Date(input.spentAt);
+    if (Number.isNaN(spentAtDate.getTime())) {
+      throw new Error("Invalid date");
+    }
+    if (spentAtDate.getTime() > now) {
+      throw new Error("Date cannot be in the future");
+    }
+    spentAt = spentAtDate.toISOString();
+  }
 
   const notes = typeof input.notes === "string" && input.notes.trim() ? input.notes.trim() : undefined;
 

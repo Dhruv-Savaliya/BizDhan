@@ -10,6 +10,8 @@ export function normalizeInvestmentInput(input: {
   investedAt?: unknown;
   notes?: unknown;
 }) {
+  const now = Date.now();
+
   const amountNum = typeof input.amount === "number" ? input.amount : Number(input.amount);
   if (!Number.isFinite(amountNum) || amountNum <= 0) {
     throw new Error("Amount must be a positive number");
@@ -26,10 +28,17 @@ export function normalizeInvestmentInput(input: {
   const assetName = typeof input.assetName === "string" ? input.assetName.trim() : "";
   if (!assetName) throw new Error("Asset name is required");
 
-  const investedAt =
-    typeof input.investedAt === "string" && input.investedAt.trim()
-      ? new Date(input.investedAt).toISOString()
-      : new Date().toISOString();
+  let investedAt = new Date().toISOString();
+  if (typeof input.investedAt === "string" && input.investedAt.trim()) {
+    const investedAtDate = new Date(input.investedAt);
+    if (Number.isNaN(investedAtDate.getTime())) {
+      throw new Error("Invalid date");
+    }
+    if (investedAtDate.getTime() > now) {
+      throw new Error("Date cannot be in the future");
+    }
+    investedAt = investedAtDate.toISOString();
+  }
 
   const notes = typeof input.notes === "string" && input.notes.trim() ? input.notes.trim() : undefined;
 

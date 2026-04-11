@@ -72,6 +72,9 @@ export default function InvoicePage() {
   const [items, setItems] = useState<InvoiceEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const maxDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
@@ -159,13 +162,13 @@ export default function InvoicePage() {
       className="pb-10 pt-4"
     >
       <div className="mx-auto w-full max-w-4xl">
-        <Card className="glass shadow-xl rounded-[2rem] border-violet-500/10 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/5 rounded-full blur-[80px] -z-10" />
+        <Card className="glass shadow-xl rounded-[2rem] border-primary/10 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -z-10" />
           
           <CardHeader className="px-8 pt-8 pb-6 border-b border-border/50 bg-muted/20">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-violet-500/10 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-violet-500" aria-hidden />
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <FileText className="h-6 w-6 text-primary" aria-hidden />
               </div>
               <div>
                 <CardTitle className="text-2xl font-bold tracking-tight">Invoices & Bills</CardTitle>
@@ -328,6 +331,7 @@ export default function InvoicePage() {
                           <FormControl>
                             <Input 
                               type="datetime-local" 
+                              max={maxDateTime}
                               className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 w-full focus-visible:ring-violet-500/20" 
                               {...field} 
                               disabled={submitting} 
@@ -347,6 +351,7 @@ export default function InvoicePage() {
                           <FormControl>
                             <Input 
                               type="datetime-local" 
+                              max={maxDateTime}
                               className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 w-full focus-visible:ring-violet-500/20" 
                               {...field} 
                               disabled={submitting} 
@@ -380,7 +385,7 @@ export default function InvoicePage() {
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
                     <Button 
                       type="submit" 
-                      className="bg-violet-500 hover:bg-violet-600 text-white h-11 rounded-xl shadow-md min-w-[140px] font-semibold active:scale-[0.98] transition-all" 
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 rounded-xl shadow-md min-w-[140px] font-semibold active:scale-[0.98] transition-all" 
                       disabled={submitting}
                     >
                       {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -434,9 +439,7 @@ export default function InvoicePage() {
                       className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:border-border"
                     >
                       <div className="flex items-start sm:items-center gap-4 min-w-0 w-full sm:w-auto">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-1 sm:mt-0 ${
-                          it.billType === 'receivable' ? 'bg-violet-500/10 text-violet-500' : 'bg-destructive/10 text-destructive'
-                        }`}>
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-1 sm:mt-0">
                           <FileText className="h-4 w-4" />
                         </div>
                         <div className="min-w-0 flex-1">

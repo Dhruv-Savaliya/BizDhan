@@ -13,6 +13,8 @@ export function normalizeInvoiceInput(input: {
   status?: unknown;
   notes?: unknown;
 }) {
+  const now = Date.now();
+
   const invoiceNumber =
     typeof input.invoiceNumber === "string" ? input.invoiceNumber.trim() : "";
   if (!invoiceNumber) throw new Error("Invoice or bill number is required");
@@ -36,13 +38,30 @@ export function normalizeInvoiceInput(input: {
       ? input.currency.trim().toUpperCase()
       : "INR";
 
-  const issuedAt =
-    typeof input.issuedAt === "string" && input.issuedAt.trim()
-      ? new Date(input.issuedAt).toISOString()
-      : new Date().toISOString();
+  let issuedAt = new Date().toISOString();
+  if (typeof input.issuedAt === "string" && input.issuedAt.trim()) {
+    const issuedAtDate = new Date(input.issuedAt);
+    if (Number.isNaN(issuedAtDate.getTime())) {
+      throw new Error("Invalid issue date");
+    }
+    if (issuedAtDate.getTime() > now) {
+      throw new Error("Issue date cannot be in the future");
+    }
+    issuedAt = issuedAtDate.toISOString();
+  }
 
   const dueAtRaw = typeof input.dueAt === "string" && input.dueAt.trim();
-  const dueAt = dueAtRaw ? new Date(dueAtRaw).toISOString() : undefined;
+  let dueAt: string | undefined;
+  if (dueAtRaw) {
+    const dueAtDate = new Date(dueAtRaw);
+    if (Number.isNaN(dueAtDate.getTime())) {
+      throw new Error("Invalid due date");
+    }
+    if (dueAtDate.getTime() > now) {
+      throw new Error("Due date cannot be in the future");
+    }
+    dueAt = dueAtDate.toISOString();
+  }
 
   const statusRaw = typeof input.status === "string" ? input.status : "unpaid";
   const status = statusRaw as InvoiceStatus;

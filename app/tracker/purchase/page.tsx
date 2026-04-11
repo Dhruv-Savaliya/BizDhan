@@ -56,6 +56,9 @@ export default function PurchasePage() {
   const [items, setItems] = useState<PurchaseEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const maxDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema) as Resolver<FormValues>,
@@ -141,13 +144,13 @@ export default function PurchasePage() {
       className="pb-10 pt-4"
     >
       <div className="mx-auto w-full max-w-4xl">
-        <Card className="glass shadow-xl rounded-[2rem] border-amber-500/10 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[80px] -z-10" />
+        <Card className="glass shadow-xl rounded-[2rem] border-primary/10 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -z-10" />
           
           <CardHeader className="px-8 pt-8 pb-6 border-b border-border/50 bg-muted/20">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-                <Package className="h-6 w-6 text-amber-500" aria-hidden />
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Package className="h-6 w-6 text-primary" aria-hidden />
               </div>
               <div>
                 <CardTitle className="text-2xl font-bold tracking-tight">Purchases</CardTitle>
@@ -296,7 +299,7 @@ export default function PurchasePage() {
                             <div className="relative">
                               <select
                                 aria-label="Purchase category"
-                                className="h-11 w-full rounded-xl border border-border/50 bg-background px-4 py-2 text-sm shadow-sm appearance-none transition-all focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 disabled:opacity-50"
+                                className="h-11 w-full rounded-xl border border-border/50 bg-background px-4 py-2 text-sm shadow-sm appearance-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
                                 value={field.value}
                                 onChange={field.onChange}
                                 disabled={submitting}
@@ -326,6 +329,7 @@ export default function PurchasePage() {
                           <FormControl>
                             <Input 
                               type="datetime-local" 
+                              max={maxDateTime}
                               className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 w-full focus-visible:ring-amber-500/20" 
                               {...field} 
                               disabled={submitting} 
@@ -359,7 +363,7 @@ export default function PurchasePage() {
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
                     <Button 
                       type="submit" 
-                      className="bg-amber-500 hover:bg-amber-600 text-white h-11 rounded-xl shadow-md min-w-[140px] font-semibold active:scale-[0.98] transition-all" 
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 rounded-xl shadow-md min-w-[140px] font-semibold active:scale-[0.98] transition-all" 
                       disabled={submitting}
                     >
                       {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
@@ -413,8 +417,8 @@ export default function PurchasePage() {
                       className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:border-border"
                     >
                       <div className="flex items-center gap-4 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
-                          <Package className="h-4 w-4 text-amber-500" />
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                            <Package className="h-4 w-4 text-primary" />
                         </div>
                         <div className="min-w-0">
                           <div className="truncate font-semibold text-foreground text-base">

@@ -121,8 +121,8 @@ export default function ReportPage() {
       className="pb-10 pt-4"
     >
       <div className="mx-auto w-full max-w-5xl">
-        <Card className="glass shadow-xl rounded-[2rem] border-fuchsia-500/10 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-fuchsia-500/10 rounded-full blur-[100px] -z-10" />
+        <Card className="glass shadow-xl rounded-[2rem] border-primary/10 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-primary/5 rounded-full blur-[100px] -z-10" />
           
           <CardHeader className="px-8 pt-8 pb-6 border-b border-border/50 bg-muted/20">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
@@ -161,7 +161,7 @@ export default function ReportPage() {
                 <Button
                   type="button"
                   onClick={() => void generate()}
-                  className="bg-fuchsia-500 hover:bg-fuchsia-600 text-white rounded-xl h-11 px-6 shadow-md transition-all active:scale-[0.98] font-semibold space-x-2"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl h-11 px-6 shadow-md transition-all active:scale-[0.98] font-semibold space-x-2"
                   disabled={loading}
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -186,7 +186,7 @@ export default function ReportPage() {
               <div className="flex flex-col items-center justify-center min-h-[300px] space-y-4">
                 <div className="relative">
                   <div className="absolute inset-0 scale-150 blur-3xl bg-fuchsia-500/20 rounded-full animate-pulse" />
-                  <Loader2 className="h-10 w-10 text-fuchsia-500 animate-spin relative z-10" />
+                  <Loader2 className="h-10 w-10 text-primary animate-spin relative z-10" />
                 </div>
                 <p className="text-sm font-medium text-muted-foreground animate-pulse">Running AI pipeline analysis...</p>
               </div>
