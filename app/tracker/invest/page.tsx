@@ -2,11 +2,32 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Plus, TrendingUp, Inbox, PieChart } from "lucide-react";
+import {
+  Loader2,
+  Plus,
+  TrendingUp,
+  TrendingDown,
+  Inbox,
+  PieChart,
+  BarChart3,
+  Bitcoin,
+  Landmark,
+  Building2,
+  Gem,
+  Shield,
+  Coins,
+  CircleDollarSign,
+  RefreshCw,
+  ArrowUpRight,
+  CalendarDays,
+  StickyNote,
+  Briefcase,
+  type LucideIcon,
+} from "lucide-react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Resolver } from "react-hook-form";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 import type { InvestSummary } from "@/types/invest";
 import type { InvestmentEntry, InvestmentType } from "@/types/investment";
@@ -14,13 +35,62 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
+/* ——— Asset Config ——— */
+const ASSET_CONFIG: Record<
+  InvestmentType,
+  { label: string; icon: LucideIcon; color: string; bg: string; ring: string }
+> = {
+  stocks: { label: "Stocks", icon: BarChart3, color: "text-emerald-500", bg: "bg-emerald-500/10", ring: "ring-emerald-500/20" },
+  mutual_fund: { label: "Mutual Fund", icon: PieChart, color: "text-blue-500", bg: "bg-blue-500/10", ring: "ring-blue-500/20" },
+  crypto: { label: "Crypto", icon: Bitcoin, color: "text-orange-500", bg: "bg-orange-500/10", ring: "ring-orange-500/20" },
+  fd: { label: "Fixed Deposit", icon: Landmark, color: "text-violet-500", bg: "bg-violet-500/10", ring: "ring-violet-500/20" },
+  rd: { label: "Recurring Deposit", icon: Coins, color: "text-teal-500", bg: "bg-teal-500/10", ring: "ring-teal-500/20" },
+  bond: { label: "Bonds", icon: Shield, color: "text-sky-500", bg: "bg-sky-500/10", ring: "ring-sky-500/20" },
+  gold: { label: "Gold", icon: Gem, color: "text-amber-500", bg: "bg-amber-500/10", ring: "ring-amber-500/20" },
+  real_estate: { label: "Real Estate", icon: Building2, color: "text-rose-500", bg: "bg-rose-500/10", ring: "ring-rose-500/20" },
+  ppf: { label: "PPF", icon: Landmark, color: "text-indigo-500", bg: "bg-indigo-500/10", ring: "ring-indigo-500/20" },
+  nps: { label: "NPS", icon: Shield, color: "text-cyan-500", bg: "bg-cyan-500/10", ring: "ring-cyan-500/20" },
+  other: { label: "Other", icon: CircleDollarSign, color: "text-gray-500", bg: "bg-gray-500/10", ring: "ring-gray-500/20" },
+};
+
+/* ——— Helpers ——— */
 function formatMoney(currency: string, value: number) {
   const sign = value < 0 ? "-" : "";
   const abs = Math.abs(value);
   return `${sign}${currency} ${abs.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+  }).format(d);
+}
+
+function formatShortDate(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(d);
+}
+
+/* ——— Schema ——— */
 const schema = z.object({
   amount: z.coerce.number().positive(),
   currency: z.string().min(3).max(3).default("INR"),
@@ -44,28 +114,26 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-  }).format(d);
-}
+/* ——— Animations ——— */
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
+  },
+};
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  hidden: { opacity: 0, y: 12, scale: 0.98 },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
-const sectionVariants = {
-  hidden: { opacity: 0, scale: 0.98 },
-  show: { opacity: 1, scale: 1, transition: { duration: 0.4 } },
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
 };
 
+/* ——— Page ——— */
 export default function InvestPage() {
   const [summaries, setSummaries] = useState<InvestSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,7 +147,7 @@ export default function InvestPage() {
     resolver: zodResolver(schema) as Resolver<FormValues>,
     defaultValues: {
       amount: 0,
-      currency: "USD",
+      currency: "INR",
       type: "mutual_fund",
       assetName: "",
       investedAt: "",
@@ -89,19 +157,12 @@ export default function InvestPage() {
 
   const typeOptions = useMemo(
     () =>
-      [
-        { value: "stocks", label: "Stocks" },
-        { value: "mutual_fund", label: "Mutual fund" },
-        { value: "crypto", label: "Crypto" },
-        { value: "fd", label: "Fixed Deposit" },
-        { value: "rd", label: "Recurring Deposit" },
-        { value: "bond", label: "Bonds" },
-        { value: "gold", label: "Gold" },
-        { value: "real_estate", label: "Real estate" },
-        { value: "ppf", label: "PPF" },
-        { value: "nps", label: "NPS" },
-        { value: "other", label: "Other" },
-      ] as const satisfies ReadonlyArray<{ value: InvestmentType; label: string }>,
+      (Object.keys(ASSET_CONFIG) as InvestmentType[]).map((key) => ({
+        value: key,
+        label: ASSET_CONFIG[key].label,
+        icon: ASSET_CONFIG[key].icon,
+        color: ASSET_CONFIG[key].color,
+      })),
     []
   );
 
@@ -147,321 +208,463 @@ export default function InvestPage() {
     }
   }
 
+  /* ——— Total invested ——— */
+  const totalInvested = useMemo(() => {
+    const byC: Record<string, number> = {};
+    for (const it of items) {
+      byC[it.currency] = (byC[it.currency] ?? 0) + it.amount;
+    }
+    return byC;
+  }, [items]);
+
   return (
-    <motion.main 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="pb-10 pt-4"
+    <motion.main
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="pb-12 pt-2"
     >
-      <div className="mx-auto w-full max-w-4xl space-y-6">
-        
-        {/* Availability Summary Card */}
-        <motion.div variants={sectionVariants} initial="hidden" animate="show">
-          <Card className="glass shadow-lg rounded-2xl border-primary/10 overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[60px] -z-10" />
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-xl font-bold tracking-tight text-foreground/90">Available to Invest</CardTitle>
-                  <CardDescription className="text-sm mt-1">Calculated as Total Income − Total Expense for this workspace.</CardDescription>
-                </div>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="icon"
-                  onClick={() => void refresh()} 
-                  disabled={loading || submitting}
-                  className="rounded-full shadow-sm hover:bg-muted/50 border-border/50 transition-colors shrink-0"
-                >
-                  <Loader2 className={`h-4 w-4 text-muted-foreground ${loading ? 'animate-spin' : 'hidden'}`} />
-                  <span className={`text-muted-foreground ${loading ? 'hidden' : 'block'}`}>↻</span>
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loading && summaries.length === 0 ? (
-                <div className="space-y-4 flex justify-between gap-4">
-                  <div className="h-24 flex-1 animate-pulse rounded-2xl bg-muted/50 border border-border/40" />
-                  <div className="h-24 flex-1 animate-pulse rounded-2xl bg-muted/50 border border-border/40" />
-                  <div className="h-24 flex-1 animate-pulse rounded-2xl bg-muted/50 border border-border/40" />
-                </div>
-              ) : summaries.length === 0 ? (
-                 <div className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/70 bg-muted/20 text-sm text-muted-foreground">
-                  <PieChart className="h-5 w-5 opacity-50" />
-                  No summary available yet. Add income and expenses.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {summaries.map((s) => (
-                    <div key={s.currency} className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {/* Using the standard glass component inside but styling distinctly */}
-                      <div className="rounded-2xl border border-border/50 bg-background/40 p-5 shadow-sm space-y-2 relative overflow-hidden group hover:border-border/80 transition-all">
-                         <div className="absolute right-0 bottom-0 p-4 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity pointer-events-none transform translate-x-4 translate-y-4">
-                           <TrendingUp className="w-24 h-24" />
-                         </div>
-                         <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Income</div>
-                         <div className="text-2xl font-black tabular-nums tracking-tight">{formatMoney(s.currency, s.totalIncome)}</div>
-                      </div>
-                      
-                      <div className="rounded-2xl border border-border/50 bg-background/40 p-5 shadow-sm space-y-2 relative overflow-hidden group hover:border-border/80 transition-all">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Expense</div>
-                         <div className="text-2xl font-black tabular-nums tracking-tight">{formatMoney(s.currency, s.totalExpense)}</div>
-                      </div>
-                      
-                      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-5 shadow-sm space-y-2 relative overflow-hidden ring-1 ring-inset ring-blue-500/10">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-[40px] -z-10" />
-                        <div className="text-xs font-bold uppercase tracking-wider text-blue-500">Available to Invest</div>
-                        <div className={`text-3xl font-black tabular-nums tracking-tighter ${s.availableToInvest > 0 ? 'text-foreground' : 'text-destructive'}`}>
-                          {formatMoney(s.currency, s.availableToInvest)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      <div className="mx-auto w-full max-w-5xl space-y-8">
+
+        {/* ── Page Header ── */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" className="flex items-end justify-between gap-4 px-1">
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+              Investments
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Track and manage your portfolio across asset classes.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void refresh()}
+            disabled={loading || submitting}
+            className="rounded-xl border-border/60 gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </motion.div>
 
-        {/* Investment Tracker Card */}
-        <motion.div variants={sectionVariants} initial="hidden" animate="show" transition={{ delay: 0.1 }}>
-          <Card className="glass shadow-xl rounded-[2rem] border-primary/10 overflow-hidden relative">
-            <div className="absolute bottom-0 right-0 w-80 h-80 bg-primary/5 rounded-full blur-[80px] -z-10" />
-            
-            <CardHeader className="px-8 pt-8 pb-6 border-b border-border/50 bg-muted/20">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                  <PieChart className="h-6 w-6 text-primary" aria-hidden />
+        {/* ── Financial Summary ── */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.05 }}>
+          {loading && summaries.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-32 animate-pulse rounded-2xl bg-muted/40 border border-border/30" />
+              ))}
+            </div>
+          ) : summaries.length === 0 ? (
+            <Card className="rounded-2xl border-dashed border-border/60 bg-muted/10">
+              <CardContent className="flex min-h-32 flex-col items-center justify-center gap-2 text-muted-foreground py-8">
+                <PieChart className="h-6 w-6 opacity-40" />
+                <p className="text-sm">No financial summary available yet. Add income and expenses to begin.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {summaries.map((s) => (
+                <>
+                  {/* Total Income */}
+                  <motion.div
+                    key={`inc-${s.currency}`}
+                    variants={itemVariants}
+                    initial="hidden"
+                    animate="show"
+                    className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-emerald-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5"
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                        <TrendingUp className="h-4 w-4 text-emerald-500" />
+                      </div>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Income
+                      </span>
+                    </div>
+                    <div className="text-2xl font-black tabular-nums tracking-tight text-foreground">
+                      {formatMoney(s.currency, s.totalIncome)}
+                    </div>
+                  </motion.div>
+
+                  {/* Total Expense */}
+                  <motion.div
+                    key={`exp-${s.currency}`}
+                    variants={itemVariants}
+                    initial="hidden"
+                    animate="show"
+                    transition={{ delay: 0.05 }}
+                    className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-rose-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-rose-500/5"
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center">
+                        <TrendingDown className="h-4 w-4 text-rose-500" />
+                      </div>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Expense
+                      </span>
+                    </div>
+                    <div className="text-2xl font-black tabular-nums tracking-tight text-foreground">
+                      {formatMoney(s.currency, s.totalExpense)}
+                    </div>
+                  </motion.div>
+
+                  {/* Total Invested */}
+                  <motion.div
+                    key={`inv-${s.currency}`}
+                    variants={itemVariants}
+                    initial="hidden"
+                    animate="show"
+                    transition={{ delay: 0.1 }}
+                    className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-violet-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/5"
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                        <Briefcase className="h-4 w-4 text-violet-500" />
+                      </div>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Invested
+                      </span>
+                    </div>
+                    <div className="text-2xl font-black tabular-nums tracking-tight text-foreground">
+                      {formatMoney(s.currency, totalInvested[s.currency] ?? 0)}
+                    </div>
+                  </motion.div>
+
+                  {/* Available to Invest */}
+                  <motion.div
+                    key={`avl-${s.currency}`}
+                    variants={itemVariants}
+                    initial="hidden"
+                    animate="show"
+                    transition={{ delay: 0.15 }}
+                    className="group relative rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/5 via-blue-500/[0.02] to-transparent p-5 overflow-hidden ring-1 ring-inset ring-blue-500/10 hover:ring-blue-500/25 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/5"
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/8 rounded-full blur-[40px]" />
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                        <ArrowUpRight className="h-4 w-4 text-blue-500" />
+                      </div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-500">
+                        Available
+                      </span>
+                    </div>
+                    <div className={`text-2xl font-black tabular-nums tracking-tight ${s.availableToInvest > 0 ? "text-foreground" : "text-destructive"}`}>
+                      {formatMoney(s.currency, s.availableToInvest)}
+                    </div>
+                  </motion.div>
+                </>
+              ))}
+            </div>
+          )}
+        </motion.div>
+
+        {/* ── New Investment Form ── */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.15 }}>
+          <Card className="rounded-2xl border-border/40 shadow-lg overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500/60 via-violet-500/60 to-emerald-500/60" />
+            <div className="absolute bottom-0 right-0 w-72 h-72 bg-primary/3 rounded-full blur-[80px] -z-10" />
+
+            <CardHeader className="px-6 sm:px-8 pt-7 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Plus className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle className="text-2xl font-bold tracking-tight">Investments</CardTitle>
-                  <CardDescription className="text-base mt-1">
-                    Record your asset purchases and allocations.
+                  <CardTitle className="text-lg font-bold tracking-tight">New Investment</CardTitle>
+                  <CardDescription className="text-sm mt-0.5">
+                    Record an asset purchase or allocation.
                   </CardDescription>
                 </div>
               </div>
             </CardHeader>
 
-            <CardContent className="p-8 space-y-10">
-              {/* Input Form */}
-              <div className="bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50 p-6 shadow-sm">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-6">New Entry</h3>
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                      <FormField
-                        control={form.control}
-                        name="amount"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</FormLabel>
+            <CardContent className="px-6 sm:px-8 pb-8">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* Amount */}
+                    <FormField
+                      control={form.control}
+                      name="amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Amount
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              className="rounded-xl bg-background border-border/50 h-11 text-lg font-semibold shadow-sm transition-all focus:bg-background/80 focus-visible:ring-blue-500/20"
+                              {...field}
+                              disabled={submitting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {/* Currency — shadcn Select */}
+                    <FormField
+                      control={form.control}
+                      name="currency"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Currency
+                          </FormLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            disabled={submitting}
+                          >
                             <FormControl>
-                              <Input 
-                                type="number" 
-                                inputMode="decimal" 
-                                placeholder="0.00" 
-                                className="rounded-xl bg-background border-border/50 h-11 text-lg font-medium shadow-sm transition-all focus:bg-background/80 focus-visible:ring-blue-500/20" 
-                                {...field} 
-                                disabled={submitting} 
-                              />
+                              <SelectTrigger className="rounded-xl bg-background border-border/50 h-11 w-full shadow-sm transition-all focus:ring-blue-500/20 [&>span]:text-sm">
+                                <SelectValue placeholder="Select currency" />
+                              </SelectTrigger>
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="INR">🇮🇳 INR — Indian Rupee</SelectItem>
+                              <SelectItem value="USD">🇺🇸 USD — US Dollar</SelectItem>
+                              <SelectItem value="EUR">🇪🇺 EUR — Euro</SelectItem>
+                              <SelectItem value="GBP">🇬🇧 GBP — British Pound</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <FormField
-                        control={form.control}
-                        name="currency"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Currency</FormLabel>
+                    {/* Asset Class — shadcn Select with icons */}
+                    <FormField
+                      control={form.control}
+                      name="type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Asset Class
+                          </FormLabel>
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            disabled={submitting}
+                          >
                             <FormControl>
-                              <Input 
-                                placeholder="USD" 
-                                className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 focus-visible:ring-blue-500/20" 
-                                {...field} 
-                                disabled={submitting} 
-                              />
+                              <SelectTrigger className="rounded-xl bg-background border-border/50 h-11 w-full shadow-sm transition-all focus:ring-blue-500/20 [&>span]:text-sm">
+                                <SelectValue placeholder="Select asset class" />
+                              </SelectTrigger>
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                            <SelectContent className="rounded-xl max-h-[280px]">
+                              {typeOptions.map((o) => {
+                                const Icon = o.icon;
+                                return (
+                                  <SelectItem key={o.value} value={o.value}>
+                                    <div className="flex items-center gap-2">
+                                      <Icon className={`h-4 w-4 ${o.color}`} />
+                                      <span>{o.label}</span>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <FormField
-                        control={form.control}
-                        name="type"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Asset Class</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <select
-                                  aria-label="Investment type"
-                                  className="h-11 w-full rounded-xl border border-border/50 bg-background px-4 py-2 text-sm shadow-sm appearance-none transition-all focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:opacity-50"
-                                  value={field.value}
-                                  onChange={field.onChange}
-                                  disabled={submitting}
-                                >
-                                  {typeOptions.map((o) => (
-                                    <option key={o.value} value={o.value}>
-                                      {o.label}
-                                    </option>
-                                  ))}
-                                </select>
-                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-muted-foreground">
-                                  <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-                                </div>
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    {/* Asset Name */}
+                    <FormField
+                      control={form.control}
+                      name="assetName"
+                      render={({ field }) => (
+                        <FormItem className="sm:col-span-2 lg:col-span-3">
+                          <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Asset Name
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="NIFTY 50 / VOO / Bitcoin / SBI FD"
+                              className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 focus-visible:ring-blue-500/20"
+                              {...field}
+                              disabled={submitting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <FormField
-                        control={form.control}
-                        name="assetName"
-                        render={({ field }) => (
-                          <FormItem className="sm:col-span-2 lg:col-span-3">
-                            <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Asset Name</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="NIFTY 50 / VOO / Bitcoin" 
-                                className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 focus-visible:ring-blue-500/20" 
-                                {...field} 
-                                disabled={submitting} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    {/* Date */}
+                    <FormField
+                      control={form.control}
+                      name="investedAt"
+                      render={({ field }) => (
+                        <FormItem className="sm:col-span-1">
+                          <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Date
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="datetime-local"
+                              max={maxDateTime}
+                              className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 w-full focus-visible:ring-blue-500/20"
+                              {...field}
+                              disabled={submitting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                      <FormField
-                        control={form.control}
-                        name="investedAt"
-                        render={({ field }) => (
-                          <FormItem className="sm:col-span-2 lg:col-span-1">
-                            <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date</FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="datetime-local" 
-                                max={maxDateTime}
-                                className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 w-full focus-visible:ring-blue-500/20" 
-                                {...field} 
-                                disabled={submitting} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="notes"
-                        render={({ field }) => (
-                          <FormItem className="sm:col-span-2 lg:col-span-2">
-                            <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notes (Optional)</FormLabel>
-                            <FormControl>
-                              <Input 
-                                placeholder="Details about this investment" 
-                                className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 focus-visible:ring-blue-500/20" 
-                                {...field} 
-                                disabled={submitting} 
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                      <Button 
-                        type="submit" 
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 rounded-xl shadow-md min-w-[140px] font-semibold active:scale-[0.98] transition-all" 
-                        disabled={submitting}
-                      >
-                        {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                        Add Entry
-                      </Button>
-                    </div>
-                  </form>
-                </Form>
-              </div>
-
-              {/* List */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Recent Entries</h3>
-                </div>
-
-                {loading ? (
-                  <div className="space-y-3">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted/50 border border-border/40" />
-                    ))}
+                    {/* Notes */}
+                    <FormField
+                      control={form.control}
+                      name="notes"
+                      render={({ field }) => (
+                        <FormItem className="sm:col-span-1 lg:col-span-2">
+                          <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            Notes (Optional)
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Details about this investment"
+                              className="rounded-xl bg-background border-border/50 h-11 shadow-sm transition-all focus:bg-background/80 focus-visible:ring-blue-500/20"
+                              {...field}
+                              disabled={submitting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                ) : items.length === 0 ? (
-                  <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/20 text-muted-foreground">
-                    <div className="w-12 h-12 rounded-full bg-background flex items-center justify-center shadow-sm">
-                      <Inbox className="h-5 w-5 opacity-50" />
-                    </div>
-                    <p className="text-sm">No investment entries found.</p>
+
+                  <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                    <Button
+                      type="submit"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground h-11 rounded-xl shadow-md min-w-[160px] font-semibold active:scale-[0.98] transition-all gap-2"
+                      disabled={submitting}
+                    >
+                      {submitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
+                      Add Investment
+                    </Button>
                   </div>
-                ) : (
-                  <motion.div 
-                    className="space-y-3"
-                    initial="hidden"
-                    animate="show"
-                    variants={{ show: { transition: { staggerChildren: 0.05 } } }}
-                  >
-                    {items.map((it) => (
-                      <motion.div 
-                        variants={itemVariants}
-                        key={it.id} 
-                        className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:border-border"
-                      >
-                        <div className="flex items-center gap-4 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                            <PieChart className="h-4 w-4 text-primary" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="truncate font-semibold text-foreground text-base">
-                              {it.assetName}
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                              <span className="capitalize bg-muted px-2 py-0.5 rounded-md font-medium text-foreground/80">{it.type.replace('_', ' ')}</span>
-                              <span>•</span>
-                              <span>{formatDate(it.investedAt)}</span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-auto w-full pl-14 sm:pl-0 border-t sm:border-0 pt-3 sm:pt-0 border-border/50">
-                          {it.notes ? (
-                            <div className="text-xs text-muted-foreground/70 truncate max-w-[150px] italic hidden sm:block">
-                              &ldquo;{it.notes}&rdquo;
-                            </div>
-                          ) : <div className="hidden sm:block w-[150px]" />}
-                          <div className="text-right shrink-0">
-                            <span className="text-xs text-muted-foreground font-medium mr-1.5">{it.currency}</span>
-                            <span className="font-bold text-lg text-foreground tracking-tight whitespace-nowrap">
-                              {it.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </motion.div>
-                )}
-              </div>
+                </form>
+              </Form>
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* ── Investment Entries ── */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.25 }}>
+          <div className="flex items-center justify-between mb-4 px-1">
+            <h2 className="text-lg font-bold tracking-tight text-foreground">
+              Recent Entries
+              {!loading && items.length > 0 && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  ({items.length})
+                </span>
+              )}
+            </h2>
+          </div>
+
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-[88px] animate-pulse rounded-2xl bg-muted/40 border border-border/30" />
+              ))}
+            </div>
+          ) : items.length === 0 ? (
+            <Card className="rounded-2xl border-dashed border-border/60 bg-muted/10">
+              <CardContent className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-muted-foreground py-8">
+                <div className="w-14 h-14 rounded-2xl bg-muted/40 flex items-center justify-center">
+                  <Inbox className="h-6 w-6 opacity-40" />
+                </div>
+                <p className="text-sm font-medium">No investment entries yet</p>
+                <p className="text-xs text-muted-foreground/70">Use the form above to record your first investment.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <motion.div
+              className="space-y-3"
+              variants={containerVariants}
+              initial="hidden"
+              animate="show"
+            >
+              <AnimatePresence>
+                {items.map((it) => {
+                  const config = ASSET_CONFIG[it.type] ?? ASSET_CONFIG.other;
+                  const Icon = config.icon;
+
+                  return (
+                    <motion.div
+                      variants={itemVariants}
+                      key={it.id}
+                      layout
+                      className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-border/40 bg-card/70 backdrop-blur-sm hover:bg-card transition-all duration-300 hover:shadow-lg hover:shadow-black/5 hover:border-border/70 ring-1 ring-inset ring-transparent hover:${config.ring}`}
+                    >
+                      {/* Left section */}
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className={`w-11 h-11 rounded-xl ${config.bg} flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105`}>
+                          <Icon className={`h-5 w-5 ${config.color}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate font-semibold text-foreground text-[15px] leading-tight">
+                            {it.assetName}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1 flex-wrap">
+                            <span className={`inline-flex items-center gap-1 ${config.bg} ${config.color} px-2 py-0.5 rounded-md font-medium text-[11px]`}>
+                              <Icon className="h-3 w-3" />
+                              {config.label}
+                            </span>
+                            {it.investedAt && (
+                              <>
+                                <span className="text-border">•</span>
+                                <span className="inline-flex items-center gap-1">
+                                  <CalendarDays className="h-3 w-3" />
+                                  {formatShortDate(it.investedAt)}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right section */}
+                      <div className="flex items-center justify-between sm:justify-end gap-4 sm:w-auto w-full pl-15 sm:pl-0 border-t sm:border-0 pt-3 sm:pt-0 border-border/40">
+                        {it.notes && (
+                          <div className="text-xs text-muted-foreground/60 truncate max-w-[140px] italic hidden md:flex items-center gap-1">
+                            <StickyNote className="h-3 w-3 shrink-0" />
+                            {it.notes}
+                          </div>
+                        )}
+                        <div className="text-right shrink-0">
+                          <div className="text-xs text-muted-foreground font-medium mb-0.5">{it.currency}</div>
+                          <span className="font-bold text-lg text-foreground tracking-tight whitespace-nowrap tabular-nums">
+                            {it.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </motion.div>
+          )}
         </motion.div>
       </div>
     </motion.main>
