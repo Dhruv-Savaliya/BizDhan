@@ -33,7 +33,9 @@ function FAQItem({ faq, index, isOpen, toggleOpen }: { faq: any, index: number, 
       </AnimatePresence>
 
       <button
+        type="button"
         onClick={toggleOpen}
+        suppressHydrationWarning
         className="relative z-10 flex w-full items-center justify-between px-6 py-5 md:px-8 md:py-6 text-left outline-none"
       >
         <span className={`text-base md:text-lg font-bold tracking-tight transition-colors duration-300 pr-8 ${isOpen ? "text-primary dark:text-primary" : "text-foreground group-hover:text-primary/80"}`}>

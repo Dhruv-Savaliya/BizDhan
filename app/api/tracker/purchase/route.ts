@@ -7,6 +7,29 @@ import {
   normalizePurchaseInput,
 } from "@/lib/purchase";
 
+export async function DELETE(request: Request) {
+  const user = await getCurrentUserAction();
+  if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+  if (!id) return NextResponse.json({ message: "Missing id" }, { status: 400 });
+
+  const workspaceId = user.defaultWorkspaceId ?? "default";
+  const db = await getMongoDb();
+  const result = await db.collection("purchase_entries").deleteOne({
+    id,
+    userId: user.id,
+    workspaceId,
+  });
+
+  if (result.deletedCount === 0) {
+    return NextResponse.json({ message: "Not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ success: true }, { status: 200 });
+}
+
 export async function GET(request: Request) {
   const user = await getCurrentUserAction();
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });

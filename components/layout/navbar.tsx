@@ -220,7 +220,7 @@ export function Navbar() {
                   <DropdownMenuItem asChild className="rounded-xl px-4 py-4 cursor-pointer hover:bg-white/5 transition-colors">
                     <Link href="/user" className="flex items-center text-white">
                        <Settings className="w-5 h-5 mr-4 text-primary" />
-                       <span className="font-bold">Admin Dashboard</span>
+                       <span className="font-bold">My Account</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="rounded-xl px-4 py-4 cursor-pointer hover:bg-white/5 transition-colors">
@@ -286,8 +286,31 @@ export function Navbar() {
                    {user ? (
                      <>
                         <Button asChild className="rounded-2xl h-16 font-black text-xl bg-primary shadow-2xl shadow-primary/20">
-                          <Link href="/user" onClick={() => setIsOpen(false)}>Dashboard</Link>
+                          <Link href="/user" onClick={() => setIsOpen(false)}>My Account</Link>
                         </Button>
+                        <div className="grid grid-cols-2 gap-3 pb-2 border-b border-white/5">
+                          {bothTrackers || hasPersonal ? (
+                            <Link href="/tracker/income" onClick={() => setIsOpen(false)} className="bg-white/5 hover:bg-white/10 rounded-xl p-3 flex flex-col items-center justify-center gap-1 transition-colors">
+                               <Sparkles className="w-5 h-5 text-primary" />
+                               <span className="text-xs font-bold text-white uppercase tracking-wider">Personal</span>
+                            </Link>
+                          ) : null}
+                          {bothTrackers || hasSme ? (
+                            <Link href="/tracker/purchase" onClick={() => setIsOpen(false)} className="bg-white/5 hover:bg-white/10 rounded-xl p-3 flex flex-col items-center justify-center gap-1 transition-colors">
+                               <ListChecks className="w-5 h-5 text-fuchsia-500" />
+                               <span className="text-xs font-bold text-white uppercase tracking-wider">Business</span>
+                            </Link>
+                          ) : null}
+                          
+                          <Link href="/tracker/summary" onClick={() => setIsOpen(false)} className="bg-white/5 hover:bg-white/10 rounded-xl p-3 flex flex-col items-center justify-center gap-1 transition-colors">
+                             <ListChecks className="w-5 h-5 text-emerald-500" />
+                             <span className="text-xs font-bold text-white uppercase tracking-wider">Summary</span>
+                          </Link>
+                          <Link href="/tracker/report" onClick={() => setIsOpen(false)} className="bg-white/5 hover:bg-white/10 rounded-xl p-3 flex flex-col items-center justify-center gap-1 transition-colors">
+                             <ListChecks className="w-5 h-5 text-blue-500" />
+                             <span className="text-xs font-bold text-white uppercase tracking-wider">Report</span>
+                          </Link>
+                        </div>
                         <Button variant="outline" onClick={() => { handleLogout(); setIsOpen(false); }} className="rounded-2xl h-16 font-black border-white/10 text-rose-500 hover:bg-rose-500/10">
                           Sign Out
                         </Button>

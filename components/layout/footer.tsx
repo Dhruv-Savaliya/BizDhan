@@ -49,9 +49,10 @@ export function Footer() {
                   <input 
                     type="email" 
                     placeholder="Enter your email" 
+                    suppressHydrationWarning
                     className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl px-6 text-white text-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all placeholder:text-white/20"
                   />
-                  <button className="absolute right-2 top-2 h-10 w-10 flex items-center justify-center bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-transform">
+                  <button type="button" suppressHydrationWarning className="absolute right-2 top-2 h-10 w-10 flex items-center justify-center bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-transform">
                     <Send className="w-4 h-4" />
                   </button>
                </div>

@@ -46,6 +46,8 @@ function AnimatedInput({ id, label, isTextarea = false, ...props }: any) {
           id={id}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
+          // Browser extensions (e.g. autofill) inject attrs like fdprocessedid before hydration
+          suppressHydrationWarning
           className={`relative z-20 w-full bg-background/50 focus:bg-transparent border border-white/10 dark:border-white/5 rounded-xl px-4 py-3 text-sm outline-none transition-all placeholder:text-muted-foreground ${isTextarea ? "resize-none min-h-[120px]" : "h-12"} ${isFocused ? "border-transparent text-foreground" : "hover:border-primary/30"}`}
         />
       </div>
@@ -140,6 +142,7 @@ export function Contact() {
 
                   <Button 
                     type="submit" 
+                    suppressHydrationWarning
                     className="w-full h-14 rounded-xl text-lg font-bold shadow-[0_0_20px_rgba(45,212,191,0.3)] hover:shadow-[0_0_30px_rgba(45,212,191,0.5)] transition-all duration-300 relative overflow-hidden group/btn disabled:opacity-90 disabled:cursor-wait"
                     disabled={isPending || isSuccess}
                   >
