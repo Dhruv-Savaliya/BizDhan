@@ -1,215 +1,304 @@
-# Template Website by Purv
+# 💰 Bizdhan
 
-A production-grade Next.js 15 + React 19 template with role-based auth, admin dashboard, reusable UI components, and MongoDB-backed data layer. Includes OTP-based password reset, JWT session cookies, protected routes, and a fully functional admin users table with create/edit/delete.
+### All-in-one finance management for individuals & small businesses
 
+[![Next.js](https://img.shields.io/badge/Next.js_15-black?style=flat-square&logo=nextdotjs)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React_19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript_5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=flat-square&logo=mongodb&logoColor=white)](https://mongodb.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_v4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?style=flat-square&logo=cloudinary&logoColor=white)](https://cloudinary.com/)
 
-## Quick Start
+---
+
+## 📖 Overview
+
+Bizdhan is a unified finance platform that eliminates the need for separate tools for personal and business money. Users choose a workspace type at signup (Personal, SME, or Both) and get a tailored dashboard for tracking income, expenses, investments, invoices, and purchases — all backed by AI-generated reports powered by Groq.
+
+---
+
+## ✨ Features
+
+### 🌐 Marketing & Public
+- Landing page with hero, features, testimonials, FAQ, contact form, and footer
+- Light / dark / system theme toggle (next-themes)
+- Lenis smooth scrolling + custom cursor animation
+
+### 🔐 Auth & Account
+- Signup with workspace mode selection: **Personal**, **SME**, or **Both**
+- JWT cookie sessions (httpOnly, jose-signed)
+- Forgot password → OTP email → reset flow (Nodemailer)
+- Profile management with Cloudinary image upload
+- User dashboard at `/user`
+
+### 📊 Personal Finance Tracker
+- Income tracking (CRUD)
+- Expense tracking (CRUD)
+- Investment tracking (CRUD)
+- AI-generated finance report (Groq LLM)
+
+### 🏢 SME Finance Tracker
+- Purchase management (CRUD)
+- Invoice creation + PDF download (jsPDF)
+- Cash runway, financial health score, spending leaks, overdue invoices summary
+- AI-generated business report (Groq LLM)
+
+### 🤖 AI & Utilities
+- AI image generation via Pollinations API
+- Cloudinary file upload / delete / folder management
+- OCR component (Tesseract.js — available, not yet wired to a page)
+
+### 🛡️ Admin / Moderator
+- Analytics dashboard at `/admin`
+- Paginated user management (create / edit / delete) at `/admin/users`
+- Moderator mirror at `/moderator`
+
+---
+
+## 🗂️ Project Structure
+
+```
+bizdhan/
+├── app/
+│   ├── (auth)/           # login, signup, forgot/reset password
+│   ├── tracker/          # authenticated finance UI (personal + SME)
+│   ├── admin/            # admin analytics + user management
+│   ├── moderator/        # moderator dashboard
+│   ├── ai/generate/      # AI image generation page
+│   └── api/              # all route handlers (auth, tracker, files, ai)
+├── components/
+│   ├── ui/               # Radix UI + shadcn primitives
+│   ├── home/             # landing page sections
+│   ├── tracker/          # finance UI components
+│   ├── admin/            # admin UI components
+│   └── custom/           # data table, OCR, etc.
+├── lib/                  # DB, JWT, email, Cloudinary, Groq, PDF, math
+├── types/                # TypeScript models (user, workspace, finance)
+├── constants/            # nav configs, marketing copy, location lists
+├── hooks/                # e.g. use-mobile.ts
+└── middleware.ts         # JWT guard for /user/* and /tracker/*
+```
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+  Browser["🌐 Browser"]
+  MW["Middleware\n(JWT cookie check)"]
+  Public["Public Routes\n/ · /login · /signup"]
+  Protected["Protected Routes\n/tracker · /user"]
+  API["Next.js API Routes\n/api/**"]
+  SA["Server Actions\ncontact · admin"]
+  MongoDB[("MongoDB")]
+  Cloudinary["☁️ Cloudinary\nFile Storage"]
+  Groq["🤖 Groq API\nAI Reports"]
+  Nodemailer["📧 Nodemailer\nOTP Email"]
+  Pollinations["🎨 Pollinations\nImage Gen"]
+
+  Browser -->|all requests| MW
+  MW -->|no token| Public
+  MW -->|valid token| Protected
+  Protected --> API
+  Public --> API
+  API --> MongoDB
+  API --> Cloudinary
+  API --> Groq
+  API --> Nodemailer
+  API --> Pollinations
+  SA --> MongoDB
+  SA --> Nodemailer
+```
+
+---
+
+## 🛠️ Tech Stack
+
+| Category | Technology |
+|----------|-----------|
+| Framework | Next.js 15.5.2 (App Router) |
+| Language | TypeScript 5 |
+| UI Library | React 19.1.0 |
+| Styling | Tailwind CSS v4, tw-animate-css |
+| Components | Radix UI, shadcn/ui setup, Lucide icons |
+| Animation | Framer Motion, Lenis smooth scroll |
+| Forms | react-hook-form + Zod 4 |
+| Tables | TanStack React Table |
+| Charts | Recharts |
+| Toast / Drawer | Sonner, Vaul |
+| Database | MongoDB (native driver, no ORM) |
+| Auth | bcryptjs + JWT (jose) + httpOnly cookie |
+| Email | Nodemailer (OTP + contact form) |
+| File Storage | Cloudinary SDK |
+| AI Reports | Groq (OpenAI-compatible, llama-3.1-70b) |
+| Image Gen | Pollinations API |
+| PDF | jsPDF |
+| OCR | Tesseract.js (available, not yet routed) |
+
+---
+
+## ⚙️ Getting Started
+
+### Prerequisites
+- Node.js 18+
+- pnpm (recommended) or npm
+- MongoDB instance (local or Atlas)
+- Accounts: Cloudinary, Groq, an SMTP email provider
+
+### Installation
 
 ```bash
-# 1) Install deps (pnpm recommended)
-pnpm i
+git clone https://github.com/Dhruv-Savaliya/BizDhan.git
+cd BizDhan
+pnpm install
+```
 
-# 2) Copy env template (create your own values)
-cp .env.example .env.local   # or create manually
+### Environment setup
 
-# 3) Run dev server
+```bash
+cp .env.example .env.local
+```
+
+Open `.env.local` and fill in all values (see Environment Variables below).
+
+> ⚠️ The app will throw at startup if any `EMAIL_*` variable is missing — Nodemailer is required for OTP.
+
+### Run locally
+
+```bash
 pnpm dev
+# → http://localhost:3000
 ```
 
-Then open http://localhost:3000
+### Other commands
 
-
-## Tech Stack
-- Next.js 15 (App Router), React 19
-- TypeScript, ESLint
-- Tailwind CSS v4, Radix UI, shadcn-like UI components
-- JWT auth with `jose`, cookies middleware protection
-- Nodemailer for OTP emails
-- Database: MongoDB
-- TanStack Table for data grid
-
-
-## Project Structure
-```
-  app\
-    (auth)\
-      forgot-password\page.tsx        # Request OTP
-      login\page.tsx                   # Login form
-      reset-password\page.tsx          # Reset with OTP
-      signup\page.tsx                  # Email/password signup
-    actions\
-      admin.ts                          # Server actions for admin ops
-      auth.ts                           # Server actions for auth/session
-    admin\
-      page.tsx                          # Admin dashboard (analytics + links)
-      users\
-        columns.tsx                     # DataTable column defs/actions
-        page.tsx                        # User management table UI
-    api\
-      auth\
-        forgot-password\route.ts        # POST: request OTP & email
-        login\route.ts                  # POST: create JWT cookie
-        reset-password\route.ts         # POST: verify OTP & update password
-        signup\route.ts                 # POST: create user, set JWT cookie
-        verify-otp\route.ts             # POST: verify OTP only
-    globals.css                         # Tailwind base
-    layout.tsx                          # Root layout, fonts, providers
-    middleware.ts                       # Route protection by role
-    not-found.tsx                       # 404 page
-    page.tsx                            # Landing page
-    user\page.tsx                       # User dashboard (example)
-  components\
-    admin\users\                        # CRUD dialogs for users
-    custom\data-table.tsx               # Generic DataTable wrapper
-    home\                               # Landing page sections
-    layout\footer.tsx, navbar.tsx       # Public layout components
-    providers.tsx                        # ThemeProviders client wrapper
-    ui\...                              # Reusable UI primitives (Radix-based)
-  constants\                            # Static content for landing
-  hooks\use-mobile.ts                   # Example hook
-  lib\
-    database\
-      clients.ts                        # Lazy-inited MongoDB client
-      index.ts                          # getDb(): adapter loader (MongoDB)
-      mongodb.ts                        # MongoDbAdapter
-      types.ts                          # DatabaseAdapter interface + models
-    email.ts                            # Nodemailer OTP sender
-    utils.ts                            # UI helpers (cn)
-  public\images\logo.svg                # Branding
-  eslint.config.mjs, tsconfig.json, next.config.ts, package.json
+```bash
+pnpm build    # production build
+pnpm start    # run production build
+pnpm lint     # ESLint check
 ```
 
+---
 
-## How It Works
+## 🔑 Environment Variables
 
-- Auth flow
-  - Signup: `POST /api/auth/signup` creates a user in the configured DB, sets `auth_token` (JWT) cookie, redirects by role.
-  - Login: `POST /api/auth/login` verifies credentials with bcrypt, sets `auth_token` cookie.
-  - Middleware: `middleware.ts` reads `auth_token`, verifies with `jose`, enforces role for `"/admin"` vs `"/user"` paths.
-  - Session access: `app/actions/auth.ts#getCurrentUserAction` verifies cookie JWT server-side and fetches user.
-  - Logout: `logoutAction` clears cookie.
-  - Forgot/reset password: request OTP via email, then verify OTP and set new password.
+### Required (app will not start without these)
 
-- Database adapter
-  - `lib/database/index.ts#getDb()` returns the MongoDB adapter (cached).
-  - `types/database.ts` defines a strict `DatabaseAdapter` interface. The adapter implements:
-    - `findUserByEmail`, `findUserById`
-    - `createUser`, `updateUser`, `deleteUserById`
-    - `getAdminAnalytics`
-    - `getPaginatedUsers`
-  - MongoDB uses the `users` collection in the configured DB.
+| Variable | Purpose |
+|----------|---------|
+| `MONGODB_URI` | MongoDB connection string |
+| `MONGODB_DB_NAME` | Database name |
+| `JWT_SECRET` | Primary JWT signing secret |
+| `EMAIL_HOST` | SMTP host for OTP emails |
+| `EMAIL_PORT` | SMTP port |
+| `EMAIL_USER` | SMTP username |
+| `EMAIL_PASS` | SMTP password |
+| `EMAIL_FROM` | Sender address for OTP emails |
 
-- Admin users table
-  - Client page `app/admin/users/page.tsx` loads paginated users via server action `getUsersAction` with sorting, filter, pagination.
-  - `components/custom/data-table.tsx` wraps TanStack Table and provides common UI.
-  - Row actions open dialogs from `components/admin/users/*` to create, edit, delete via server actions in `app/actions/admin.ts`.
+### Required for full functionality
 
+| Variable | Purpose |
+|----------|---------|
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name |
+| `CLOUDINARY_API_KEY` | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Cloudinary API secret |
+| `GROQ_API_KEY` | Groq API key for AI reports |
 
-## Environment Configuration
+### Optional
 
-Create `.env.local` with the following (only the adapter you choose is strictly required, but the template supports all; missing email envs will throw at startup):
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `RECEIPT_LLM_MODEL` | `llama-3.1-70b-versatile` | Groq model for tracker reports |
+| `AUTH_SECRET` / `NEXTAUTH_SECRET` | — | Alternate JWT verify secrets |
+| `POLLINATIONS_BASE_URL` | `https://image.pollinations.ai` | Image gen base URL |
+| `POLLINATIONS_MODEL` | `flux` | Image generation model |
+| `POLLINATIONS_DEFAULT_WIDTH` | — | Default image width |
+| `POLLINATIONS_DEFAULT_HEIGHT` | — | Default image height |
+| `SMTP_HOST/PORT/USER/PASS/FROM/TO` | — | Separate SMTP for contact form |
+| `APP_NAME` | — | "From" display name in emails |
+| `NODE_ENV` | — | Sets secure cookie in production |
 
-```env
-# General
-NODE_ENV=development
-APP_NAME=My App
-JWT_SECRET=replace-with-strong-random-string
+---
 
-# Email (required for OTP)
-EMAIL_HOST=smtp.example.com
-EMAIL_PORT=587               # 465 for SSL
-EMAIL_USER=postmaster@example.com
-EMAIL_PASS=yourpassword
-EMAIL_FROM=no-reply@example.com
+## 📡 API Reference
 
-# MongoDB
-MONGODB_URI=mongodb+srv://user:pass@cluster0.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DB_NAME=odoo_private
+### Auth
+
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| `POST` | `/api/auth/signup` | Create user + workspaces, set JWT cookie | No |
+| `POST` | `/api/auth/login` | Verify credentials, set JWT cookie | No |
+| `POST` | `/api/auth/signout` | Clear session cookie | No |
+| `POST` | `/api/auth/forgot-password` | Send OTP to email | No |
+| `POST` | `/api/auth/verify-otp` | Verify OTP code | No |
+| `POST` | `/api/auth/reset-password` | Reset password with valid OTP | No |
+| `GET` | `/api/auth/me` | Get current user JSON | Cookie |
+
+### Tracker
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET/POST` | `/api/tracker/income` | List / create income entries |
+| `GET/POST` | `/api/tracker/expense` | List / create expense entries |
+| `GET/POST` | `/api/tracker/invest` | List / create investments |
+| `GET/POST` | `/api/tracker/purchase` | List / create purchases (SME) |
+| `GET/POST` | `/api/tracker/invoice` | List / create invoices (SME) |
+| `GET` | `/api/tracker/summary` | Aggregated stats, runway, health score, leaks, overdue |
+| `POST` | `/api/tracker/report` | Generate AI narrative report via Groq |
+
+### Files
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/files/upload` | Upload file to Cloudinary (multipart) |
+| `POST` | `/api/files/delete` | Delete asset by Cloudinary `publicId` |
+| `POST` | `/api/files/delete-folder` | Delete Cloudinary folder + all resources |
+
+### AI
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/ai/generate` | Generate image URL via Pollinations |
+
+---
+
+## 🚀 Deployment
+
+Bizdhan is a standard Next.js app with no custom server — deploy anywhere that runs Node.js.
+
+**Vercel (recommended)**
+1. Push to GitHub
+2. Import repo in Vercel dashboard
+3. Add all environment variables in Vercel project settings
+4. Deploy — Vercel auto-runs `next build`
+
+**Self-hosted (VPS / Docker)**
+```bash
+pnpm build
+pnpm start   # runs next start on port 3000
 ```
 
-Notes:
-- `JWT_SECRET` must be set; it’s used by APIs and middleware.
-- Email variables are required at boot by `lib/email.ts`.
-- For Firebase private key, keep newline escapes as shown; code replaces `\n` with real newlines.
+Make sure all `EMAIL_*`, `MONGODB_URI`, and `JWT_SECRET` env vars are set before starting.
 
+---
 
-## Database Setup
+## 🤝 Contributing
 
-- MongoDB
-  - Database `MONGODB_DB_NAME`, collection `users` with similar fields.
-  - Unique index on `email` recommended.
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Make your changes and commit: `git commit -m "feat: add your feature"`
+4. Push to your branch: `git push origin feature/your-feature`
+5. Open a Pull Request
 
+---
 
-## Scripts
-- `pnpm dev`: start Next.js dev server
-- `pnpm build`: production build
-- `pnpm start`: start production server
-- `pnpm lint`: run ESLint
+## 📄 License
 
+MIT License — see [LICENSE](LICENSE) for details.
 
-## API Endpoints
-- POST `/api/auth/signup` { fullName, email, password, role? } → sets cookie, returns role
-- POST `/api/auth/login` { email, password } → sets cookie, returns role
-- POST `/api/auth/forgot-password` { email } → sends OTP if user exists (generic response)
-- POST `/api/auth/verify-otp` { email, otp } → verifies OTP validity
-- POST `/api/auth/reset-password` { email, otp, password } → updates password
+---
 
-All endpoints are server-only; cookies are `httpOnly`, `sameSite=strict`, `secure` in production.
+  Built with Next.js, MongoDB, and Groq AI
 
-
-## Routing & Access Control
-- Protected routes: `"/admin"` and `"/user"` guarded by `middleware.ts`.
-- Middleware decodes `auth_token` and checks `payload.role` for admin paths.
-- On failure, user is redirected to `/login` and the cookie is cleared.
-
-
-## UI/UX
-- `components/ui/*` exposes composable primitives built on Radix.
-- `components/custom/data-table.tsx` provides search, sort, pagination, refresh slot.
-- `components/admin/users/*` implements CRUD dialogs wired to server actions.
-- The public marketing pages live in `components/home/*` and `constants/home/*`.
-
-
-## Extending the Data Model
-1) Update the relevant type files in `types/` directory with new fields or interfaces.
-2) Implement the changes in `lib/database/mongodb.ts`.
-3) Update server actions and UI where needed.
-
-The `DatabaseAdapter` interface is the contract; keeping it consistent preserves portability across providers.
-
-
-## Maintenance Guide
-- Configuration
-  - Keep `.env.local` out of version control.
-  - Rotate `JWT_SECRET` and SMTP credentials regularly.
-
-- Security
-  - Always hash passwords (`bcryptjs` used already).
-  - Limit Supabase service key exposure to server only.
-  - Ensure cookies are `secure` in production.
-
-- Database
-  - Add indexes for frequent queries (e.g., `email`).
-  - Keep schema parity across adapters.
-
-- Email
-  - Monitor SMTP deliverability; switch to a provider like SES or Resend as needed.
-
-- Code Quality
-  - Run `pnpm lint` in CI.
-  - Prefer server actions and API routes for data mutations.
-  - Avoid catching errors without meaningful handling.
-
-- Upgrades
-  - Check Next.js and React release notes before bumping.
-  - Tailwind v4 is used; validate plugin compatibility.
-
-
-## Troubleshooting
-- App throws at startup: missing email envs. Provide all SMTP variables or mock them for dev.
-- 401 on login: ensure user exists and password hashes match; check MongoDB connection and `MONGODB_URI`.
-- Redirect loops: verify `JWT_SECRET` consistency and cookie domain/path.
-
-
-## Is this a template?
-Yes — this is a template with a MongoDB-backed data layer.
+---
