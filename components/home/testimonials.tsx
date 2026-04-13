@@ -143,7 +143,7 @@ function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
         </div>
 
         <p className="text-foreground/90 text-lg leading-relaxed flex-1 mb-8 relative z-10">
-          "{testimonial.content}"
+          &quot;{testimonial.content}&quot;
         </p>
 
         <div className="flex items-center gap-5 pt-6 border-t border-border/40 relative z-10">

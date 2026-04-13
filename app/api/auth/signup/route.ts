@@ -45,8 +45,6 @@ export async function POST(request: Request) {
 
     const extras: Partial<User> = {};
     for (const def of getEnabledUserFields()) {
-      if (def.name === "role" || def.name === "isAdmin") continue;
-
       const val = bodyFields[def.name];
       if (val !== undefined) (extras as Record<string, unknown>)[def.name] = val;
     }

@@ -44,7 +44,7 @@ function MagneticButton({ children, className, variant, size, asChild, href }: H
         className={className}
         asChild={asChild}
       >
-        {asChild ? <Link href={href}>{children}</Link> : children}
+        {asChild ? <Link href={href ?? "#"}>{children}</Link> : children}
       </Button>
     </motion.div>
   );

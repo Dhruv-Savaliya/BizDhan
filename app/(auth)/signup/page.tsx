@@ -279,7 +279,7 @@ export default function SignupPage() {
                     >
                       <div className="space-y-2">
                         <h1 className="text-4xl font-black text-white tracking-tighter">The Basics</h1>
-                        <p className="text-sm text-white/40 font-medium">Let's set up your identity on Bizdhan.</p>
+                        <p className="text-sm text-white/40 font-medium">Let&apos;s set up your identity on Bizdhan.</p>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -334,7 +334,7 @@ export default function SignupPage() {
                                   {def.ui === "select" ? (
                                     <Select
                                       onValueChange={field.onChange}
-                                      defaultValue={field.value as string}
+                                      value={typeof field.value === "string" ? field.value : ""}
                                     >
                                       <SelectTrigger className="rounded-2xl h-14 bg-white/5 border-white/10 text-white focus:border-primary/50 focus:ring-primary/20 transition-all font-bold">
                                         <SelectValue placeholder={`Select ${def.label}`} />
@@ -351,7 +351,11 @@ export default function SignupPage() {
                                     <Input
                                       placeholder={def.placeholder || def.label}
                                       className="rounded-2xl h-14 bg-white/5 border-white/10 text-white placeholder:text-white/10 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all font-bold"
-                                      {...field}
+                                      name={field.name}
+                                      onBlur={field.onBlur}
+                                      ref={field.ref}
+                                      value={typeof field.value === "string" ? field.value : ""}
+                                      onChange={(event) => field.onChange(event.target.value)}
                                       disabled={isLoading}
                                     />
                                   )}

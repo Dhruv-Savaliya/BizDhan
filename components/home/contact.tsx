@@ -12,7 +12,6 @@ const ease = [0.16, 1, 0.3, 1] as const;
 
 function AnimatedInput({ id, label, isTextarea = false, ...props }: AnimatedInputProps) {
   const [isFocused, setIsFocused] = useState(false);
-  const Component = isTextarea ? "textarea" : "input";
 
   return (
     <div className="space-y-2 relative">
@@ -42,15 +41,25 @@ function AnimatedInput({ id, label, isTextarea = false, ...props }: AnimatedInpu
         {/* Cover for input background (allows gradient to peek through edges) */}
         {isFocused && <div className="absolute inset-[1px] bg-background/95 rounded-[11px] z-10 pointer-events-none" />}
 
-        <Component
-          {...props}
-          id={id}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          // Browser extensions (e.g. autofill) inject attrs like fdprocessedid before hydration
-          suppressHydrationWarning
-          className={`relative z-20 w-full bg-background/50 focus:bg-transparent border border-white/10 dark:border-white/5 rounded-xl px-4 py-3 text-sm outline-none transition-all placeholder:text-muted-foreground ${isTextarea ? "resize-none min-h-[120px]" : "h-12"} ${isFocused ? "border-transparent text-foreground" : "hover:border-primary/30"}`}
-        />
+        {isTextarea ? (
+          <textarea
+            {...(props as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
+            id={id}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            suppressHydrationWarning
+            className={`relative z-20 w-full bg-background/50 focus:bg-transparent border border-white/10 dark:border-white/5 rounded-xl px-4 py-3 text-sm outline-none transition-all placeholder:text-muted-foreground resize-none min-h-[120px] ${isFocused ? "border-transparent text-foreground" : "hover:border-primary/30"}`}
+          />
+        ) : (
+          <input
+            {...(props as React.InputHTMLAttributes<HTMLInputElement>)}
+            id={id}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            suppressHydrationWarning
+            className={`relative z-20 w-full bg-background/50 focus:bg-transparent border border-white/10 dark:border-white/5 rounded-xl px-4 py-3 text-sm outline-none transition-all placeholder:text-muted-foreground h-12 ${isFocused ? "border-transparent text-foreground" : "hover:border-primary/30"}`}
+          />
+        )}
       </div>
     </div>
   );
@@ -102,7 +111,7 @@ export function Contact() {
               Get in Touch
             </div>
             <h2 className="text-5xl md:text-6xl lg:text-7xl font-black text-foreground mb-8 tracking-tighter leading-[1.1]">
-              Let's talk about <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">your business.</span>
+              Let&apos;s talk about <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">your business.</span>
             </h2>
             <p className="text-muted-foreground text-xl md:text-2xl leading-relaxed mb-12 max-w-lg font-medium">
               Ready to transform your financial operations? Our team is standing by to help you integrate Bizdhan.

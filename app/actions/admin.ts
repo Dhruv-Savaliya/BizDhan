@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/database";
 import { GetUsersParams } from "@/types/pagination";
-import { UserRole } from "@/types/roles";
+import { UserRole, canAccessRole } from "@/types/roles";
 import { getCurrentUserAction } from "./auth";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
@@ -15,7 +15,7 @@ async function requireAdminAction() {
     throw new Error("Unauthenticated");
   }
 
-  if (sessionUser.role !== "admin") {
+  if (!canAccessRole(sessionUser.role, "admin")) {
     throw new Error("Forbidden");
   }
 }

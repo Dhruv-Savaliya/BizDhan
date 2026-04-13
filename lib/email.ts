@@ -7,25 +7,27 @@ const requiredEnvVars = [
   "EMAIL_PASS",
   "EMAIL_FROM",
 ];
-const missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
-if (missingEnvVars.length > 0) {
-  throw new Error(
-    `Missing required environment variables for email: ${missingEnvVars.join(
-      ", "
-    )}`
-  );
+function getTransporter() {
+  const missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
+  if (missingEnvVars.length > 0) {
+    throw new Error(
+      `Missing required environment variables for email: ${missingEnvVars.join(
+        ", "
+      )}`
+    );
+  }
+
+  const port = Number(process.env.EMAIL_PORT);
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port,
+    secure: port === 465,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
 }
-
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: parseInt(process.env.EMAIL_PORT!),
-
-  secure: parseInt(process.env.EMAIL_PORT!) === 465,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
 
 /**
  * Sends a One-Time Password (OTP) email to a specified recipient.
@@ -34,6 +36,7 @@ const transporter = nodemailer.createTransport({
  */
 export async function sendOTPEmail(to: string, otp: string) {
   try {
+    const transporter = getTransporter();
     const info = await transporter.sendMail({
       from: `"${process.env.APP_NAME || "Your App"}" <${
         process.env.EMAIL_FROM

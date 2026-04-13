@@ -16,6 +16,8 @@ import {
 
 import { getCurrentUserAction } from "@/app/actions/auth";
 import { UserInfoCard } from "@/components/user";
+import type { UserRole } from "@/types/roles";
+import { canAccessRole } from "@/types/roles";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,8 +33,7 @@ interface User {
   id: string;
   name: string;
   email: string;
-  /** API may return roles beyond the simplified `UserRole` union in `types/roles`. */
-  role: string;
+  role: UserRole;
   [key: string]: unknown;
 }
 
@@ -165,7 +166,7 @@ export default function UserPage() {
                     Go to Tracker
                   </Link>
                 </Button>
-                {user.role === "admin" && (
+                {canAccessRole(user.role, "admin") && (
                   <Button
                     asChild
                     variant="outline"
@@ -178,7 +179,7 @@ export default function UserPage() {
                     </Link>
                   </Button>
                 )}
-                {user.role === "moderator" && (
+                {canAccessRole(user.role, "moderator") && (
                   <Button
                     asChild
                     variant="outline"
