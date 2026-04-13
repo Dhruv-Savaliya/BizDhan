@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
+import { z } from "zod";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import { getMongoDb } from "@/lib/database/clients";
 import type { IncomeEntry } from "@/types/income";
 import { createIncomeEntry, normalizeIncomeInput } from "@/lib/income";
+import { suggestCategory } from "@/lib/ai/categorize";
+
+const postBodySchema = z.object({
+  amount: z.unknown(),
+  category: z.string().optional(),
+  description: z.string().optional(),
+});
 
 export async function GET(request: Request) {
   const user = await getCurrentUserAction();
@@ -58,6 +66,21 @@ export async function POST(request: Request) {
   const workspaceId = user.defaultWorkspaceId ?? "default";
 
   try {
+    const parsed = postBodySchema.safeParse(body ?? {});
+    if (!parsed.success) {
+      return NextResponse.json({ message: "Invalid request body" }, { status: 400 });
+    }
+
+    if (!body?.category || !String(body.category).trim()) {
+      const amountNumber = Number(parsed.data.amount);
+      const aiCategory = await suggestCategory(
+        parsed.data.description?.trim() ?? "",
+        Number.isFinite(amountNumber) ? amountNumber : 0,
+        "income"
+      );
+      body.category = aiCategory;
+    }
+
     const normalized = normalizeIncomeInput(body ?? {});
 
     const db = await getMongoDb();
