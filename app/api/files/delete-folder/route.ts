@@ -1,14 +1,46 @@
 import { NextResponse } from "next/server";
 import { cloudinary } from "@/lib/cloudinary";
+import { getCurrentUserAction } from "@/app/actions/auth";
+import { getMongoDb } from "@/lib/database/clients";
+import type { Workspace } from "@/types/workspace";
 
 export async function POST(req: Request) {
   try {
-    const { folder } = (await req.json()) as { folder?: string };
+    const user = await getCurrentUserAction();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { folder, workspaceId: bodyWorkspaceId } = (await req.json()) as {
+      folder?: string;
+      workspaceId?: string;
+    };
     if (!folder) {
       return NextResponse.json(
         { message: "folder is required" },
         { status: 400 }
       );
+    }
+
+    const workspaceId =
+      bodyWorkspaceId ??
+      folder.match(/\/workspaces\/([^/]+)\//)?.[1] ??
+      folder.match(/^workspaces\/([^/]+)\//)?.[1];
+
+    if (!workspaceId) {
+      return NextResponse.json(
+        { message: "workspaceId is required" },
+        { status: 400 }
+      );
+    }
+
+    const db = await getMongoDb();
+    const workspace = await db.collection<Workspace>("workspaces").findOne({
+      id: workspaceId,
+      ownerUserId: user.id,
+    });
+    if (!workspace) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const resources = await cloudinary.api.resources({

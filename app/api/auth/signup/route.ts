@@ -4,7 +4,6 @@ import { v4 as uuidv4 } from "uuid";
 import { getDb } from "@/lib/database";
 import { getMongoDb } from "@/lib/database/clients";
 import { User } from "@/types/user";
-import { UserRole } from "@/types/roles";
 import { getEnabledUserFields } from "@/types/user-schema";
 import type { SignupMode } from "@/types/workspace";
 import { createWorkspacesForSignup } from "@/lib/workspaces";
@@ -14,13 +13,18 @@ export async function POST(request: Request) {
   try {
     const db = await getDb();
     const body = await request.json();
-    const { fullName, email, password, role = "user", signupMode } = body as {
+    const { fullName, email, password, signupMode, ...rawBodyFields } = body as {
       fullName?: string;
       email?: string;
       password?: string;
-      role?: string;
       signupMode?: SignupMode;
+      [key: string]: unknown;
     };
+    const bodyFields = rawBodyFields as Record<string, unknown>;
+
+    // Public signup must never allow privilege escalation from payload fields.
+    delete bodyFields.role;
+    delete bodyFields.isAdmin;
 
     if (!email || !password || !fullName) {
       return NextResponse.json(
@@ -41,7 +45,9 @@ export async function POST(request: Request) {
 
     const extras: Partial<User> = {};
     for (const def of getEnabledUserFields()) {
-      const val = body?.[def.name];
+      if (def.name === "role" || def.name === "isAdmin") continue;
+
+      const val = bodyFields[def.name];
       if (val !== undefined) (extras as Record<string, unknown>)[def.name] = val;
     }
 
@@ -53,7 +59,7 @@ export async function POST(request: Request) {
       fullName,
       email: email.toLowerCase(),
       passwordHash,
-      role: role as UserRole,
+      role: "user",
       signupMode: normalizedSignupMode,
       created_at: nowIso,
       updated_at: nowIso,

@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { cloudinary } from "@/lib/cloudinary";
+import { getCurrentUserAction } from "@/app/actions/auth";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
+    const user = await getCurrentUserAction();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await req.formData();
 
     const folder = (formData.get("folder") as string) || "uploads";

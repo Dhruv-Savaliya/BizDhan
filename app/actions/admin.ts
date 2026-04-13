@@ -4,15 +4,30 @@ import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/database";
 import { GetUsersParams } from "@/types/pagination";
 import { UserRole } from "@/types/roles";
+import { getCurrentUserAction } from "./auth";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 
+async function requireAdminAction() {
+  const sessionUser = await getCurrentUserAction();
+
+  if (!sessionUser) {
+    throw new Error("Unauthenticated");
+  }
+
+  if (sessionUser.role !== "admin") {
+    throw new Error("Forbidden");
+  }
+}
+
 export async function getAdminAnalyticsAction() {
+  await requireAdminAction();
   const db = await getDb();
   return db.getAdminAnalytics();
 }
 
 export async function getUsersAction(params: GetUsersParams) {
+  await requireAdminAction();
   const db = await getDb();
   return db.getPaginatedUsers(params);
 }
@@ -24,6 +39,7 @@ export async function createAdminUserAction(data: {
   password?: string;
   [key: string]: unknown;
 }) {
+  await requireAdminAction();
   const db = await getDb();
   const existingUser = await db.findUserByEmail(data.email);
   if (existingUser)
@@ -57,6 +73,7 @@ export async function updateAdminUserAction(
   id: string,
   data: { fullName: string; role: UserRole; [key: string]: unknown }
 ) {
+  await requireAdminAction();
   const db = await getDb();
   await db.updateUser(id, data);
   revalidatePath("/admin/users");
@@ -64,6 +81,7 @@ export async function updateAdminUserAction(
 }
 
 export async function deleteAdminUserAction(id: string) {
+  await requireAdminAction();
   const db = await getDb();
   await db.deleteUserById(id);
   revalidatePath("/admin/users");
