@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getDb } from "@/lib/database";
 import { signAuthToken } from "@/lib/jwt";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
-  const db = await getDb();
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
 
   try {
+    const db = await getDb();
     const body = await request.json();
     const { email, password } = body;
 
@@ -52,10 +54,14 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error) {
-    console.error("Login error:", error);
+  } catch (err: unknown) {
+    logger.error("Unhandled error", {
+      requestId,
+      error: err instanceof Error ? err.message : "Unknown error",
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error", requestId },
       { status: 500 }
     );
   }

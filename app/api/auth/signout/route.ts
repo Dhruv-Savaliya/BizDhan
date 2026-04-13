@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 
-export async function POST() {
+export async function POST(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
   try {
     const response = NextResponse.json(
       { message: "Signout successful" },
@@ -16,15 +18,19 @@ export async function POST() {
     });
 
     return response;
-  } catch (error) {
-    console.error("Signout error:", error);
+  } catch (err: unknown) {
+    logger.error("Unhandled error", {
+      requestId,
+      error: err instanceof Error ? err.message : "Unknown error",
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error", requestId },
       { status: 500 }
     );
   }
 }
 
-export async function GET() {
-  return POST();
+export async function GET(request: Request) {
+  return POST(request);
 }

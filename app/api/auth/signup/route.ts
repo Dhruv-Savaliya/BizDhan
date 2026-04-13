@@ -6,10 +6,12 @@ import { getMongoDb } from "@/lib/database/clients";
 import { User } from "@/types/user";
 import { getEnabledUserFields } from "@/types/user-schema";
 import type { SignupMode } from "@/types/workspace";
+import { logger } from "@/lib/logger";
 import { createWorkspacesForSignup } from "@/lib/workspaces";
 import { signAuthToken } from "@/lib/jwt";
 
 export async function POST(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
   try {
     const db = await getDb();
     const body = await request.json();
@@ -105,28 +107,15 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error: unknown) {
-    console.error("Signup error:", error);
-
-    const errorCode =
-      typeof error === "object" && error !== null && "code" in error
-        ? (error as { code?: string }).code
-        : undefined;
-    const errorMessage =
-      typeof error === "object" && error !== null && "message" in error
-        ? String((error as { message?: unknown }).message ?? "")
-        : "";
-
-    // Specifically handle MongoDB connection issues with a better message
-    if (errorCode === "ECONNREFUSED" || errorMessage.includes("mongodb")) {
-      return NextResponse.json(
-        { message: "Database connection failed. Please check your IP whitelist in MongoDB Atlas." },
-        { status: 503 }
-      );
-    }
+  } catch (err: unknown) {
+    logger.error("Unhandled error", {
+      requestId,
+      error: err instanceof Error ? err.message : "Unknown error",
+      stack: err instanceof Error ? err.stack : undefined,
+    });
 
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error", requestId },
       { status: 500 }
     );
   }

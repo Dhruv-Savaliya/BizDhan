@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { getDb } from "@/lib/database";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
-  const db = await getDb();
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
 
   try {
+    const db = await getDb();
     const { email, otp, password } = await request.json();
 
     if (!email || !otp || !password) {
@@ -45,10 +47,14 @@ export async function POST(request: Request) {
       { message: "Password reset successful" },
       { status: 200 }
     );
-  } catch (error) {
-    console.error("Reset password error:", error);
+  } catch (err: unknown) {
+    logger.error("Unhandled error", {
+      requestId,
+      error: err instanceof Error ? err.message : "Unknown error",
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error", requestId },
       { status: 500 }
     );
   }

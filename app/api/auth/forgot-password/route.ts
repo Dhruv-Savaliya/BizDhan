@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/database";
 import { sendOTPEmail } from "@/lib/email";
+import { logger } from "@/lib/logger";
 import crypto from "crypto";
 
 export async function POST(request: Request) {
-  const db = await getDb();
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
 
   try {
+    const db = await getDb();
     const { email } = await request.json();
 
     if (!email) {
@@ -26,10 +28,14 @@ export async function POST(request: Request) {
 
       try {
         await sendOTPEmail(user.email, otp);
-      } catch (emailError) {
-        console.error("Failed to send email:", emailError);
+      } catch (emailError: unknown) {
+        logger.error("Unhandled error", {
+          requestId,
+          error: emailError instanceof Error ? emailError.message : "Unknown error",
+          stack: emailError instanceof Error ? emailError.stack : undefined,
+        });
         return NextResponse.json(
-          { message: "Failed to send email" },
+          { error: "Internal server error", requestId },
           { status: 500 }
         );
       }
@@ -39,10 +45,14 @@ export async function POST(request: Request) {
       { message: "If an account exists, an OTP has been sent." },
       { status: 200 }
     );
-  } catch (error) {
-    console.error("Forgot password error:", error);
+  } catch (err: unknown) {
+    logger.error("Unhandled error", {
+      requestId,
+      error: err instanceof Error ? err.message : "Unknown error",
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     return NextResponse.json(
-      { message: "Internal server error" },
+      { error: "Internal server error", requestId },
       { status: 500 }
     );
   }

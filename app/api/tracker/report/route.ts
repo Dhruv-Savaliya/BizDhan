@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import { getMongoDb } from "@/lib/database/clients";
 import { groqChat } from "@/lib/groq";
+import { logger } from "@/lib/logger";
 import { computeTrackerStats } from "@/lib/report";
 import type { IncomeEntry } from "@/types/income";
 import type { ExpenseEntry } from "@/types/expense";
@@ -10,64 +11,65 @@ import type { InvestmentEntry } from "@/types/investment";
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.RECEIPT_LLM_MODEL || "llama-3.1-70b-versatile";
 
-export async function POST() {
-  const user = await getCurrentUserAction();
-  if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-
-  if (!GROQ_API_KEY) {
-    return NextResponse.json({ message: "Missing GROQ_API_KEY" }, { status: 500 });
-  }
-
-  const workspaceId = user.defaultWorkspaceId ?? "default";
-  const db = await getMongoDb();
-
-  const limit = 300;
-  const [income, expense, investments] = await Promise.all([
-    db
-      .collection<IncomeEntry>("income_entries")
-      .find({ userId: user.id, workspaceId })
-      .sort({ receivedAt: -1, created_at: -1 })
-      .limit(limit)
-      .toArray(),
-    db
-      .collection<ExpenseEntry>("expense_entries")
-      .find({ userId: user.id, workspaceId })
-      .sort({ spentAt: -1, created_at: -1 })
-      .limit(limit)
-      .toArray(),
-    db
-      .collection<InvestmentEntry>("investment_entries")
-      .find({ userId: user.id, workspaceId })
-      .sort({ investedAt: -1, created_at: -1 })
-      .limit(limit)
-      .toArray(),
-  ]);
-
-  const stats = computeTrackerStats({
-    income,
-    expense,
-    investments,
-  });
-
-  const prompt = JSON.stringify(
-    {
-      workspaceId,
-      generatedAt: new Date().toISOString(),
-      counts: stats.counts,
-      totals: stats.totals,
-      tops: stats.tops,
-      latest: stats.latest,
-      sample: {
-        income: income.slice(0, 30),
-        expense: expense.slice(0, 30),
-        investments: investments.slice(0, 30),
-      },
-    },
-    null,
-    2
-  );
-
+export async function POST(request: Request) {
+  const requestId = request.headers.get("x-request-id") ?? "unknown";
   try {
+    const user = await getCurrentUserAction();
+    if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+
+    if (!GROQ_API_KEY) {
+      return NextResponse.json({ message: "Missing GROQ_API_KEY" }, { status: 500 });
+    }
+
+    const workspaceId = user.defaultWorkspaceId ?? "default";
+    const db = await getMongoDb();
+
+    const limit = 300;
+    const [income, expense, investments] = await Promise.all([
+      db
+        .collection<IncomeEntry>("income_entries")
+        .find({ userId: user.id, workspaceId })
+        .sort({ receivedAt: -1, created_at: -1 })
+        .limit(limit)
+        .toArray(),
+      db
+        .collection<ExpenseEntry>("expense_entries")
+        .find({ userId: user.id, workspaceId })
+        .sort({ spentAt: -1, created_at: -1 })
+        .limit(limit)
+        .toArray(),
+      db
+        .collection<InvestmentEntry>("investment_entries")
+        .find({ userId: user.id, workspaceId })
+        .sort({ investedAt: -1, created_at: -1 })
+        .limit(limit)
+        .toArray(),
+    ]);
+
+    const stats = computeTrackerStats({
+      income,
+      expense,
+      investments,
+    });
+
+    const prompt = JSON.stringify(
+      {
+        workspaceId,
+        generatedAt: new Date().toISOString(),
+        counts: stats.counts,
+        totals: stats.totals,
+        tops: stats.tops,
+        latest: stats.latest,
+        sample: {
+          income: income.slice(0, 30),
+          expense: expense.slice(0, 30),
+          investments: investments.slice(0, 30),
+        },
+      },
+      null,
+      2
+    );
+
     const report = await groqChat({
       apiKey: GROQ_API_KEY,
       model: GROQ_MODEL,
@@ -110,9 +112,13 @@ export async function POST() {
     });
 
     return NextResponse.json({ report, stats }, { status: 200 });
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "Failed to generate report";
-    return NextResponse.json({ message }, { status: 500 });
+  } catch (err: unknown) {
+    logger.error("Unhandled error", {
+      requestId,
+      error: err instanceof Error ? err.message : "Unknown error",
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+    return NextResponse.json({ error: "Internal server error", requestId }, { status: 500 });
   }
 }
 
