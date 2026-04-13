@@ -173,7 +173,7 @@ export function getFieldOptions(
 }
 
 export function buildUserExtraZodShape() {
-  const shape: any = {};
+  const shape: Partial<Record<UserExtraFieldName, z.ZodTypeAny>> = {};
   for (const f of USER_FIELD_DEFS) {
     let schema: z.ZodTypeAny;
     switch (f.ui) {
@@ -185,7 +185,7 @@ export function buildUserExtraZodShape() {
           .optional();
         break;
       case "file":
-        schema = z.any().optional();
+        schema = z.unknown().optional();
         break;
       case "url":
         schema = z.string().url().optional();
@@ -200,7 +200,7 @@ export function buildUserExtraZodShape() {
         schema = z.boolean().optional();
         break;
       default:
-        schema = z.any().optional();
+        schema = z.unknown().optional();
     }
     shape[f.name] = schema;
   }

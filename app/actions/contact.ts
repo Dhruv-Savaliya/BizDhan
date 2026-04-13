@@ -55,7 +55,7 @@ export async function submitContactForm(formData: FormData) {
     }
 
     return { success: true, message: "Email sent successfully" };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error sending contact email:", error);
     return { success: false, message: "Error sending email. Please try again later." };
   }

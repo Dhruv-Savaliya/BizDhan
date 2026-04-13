@@ -2,6 +2,7 @@
 import { motion, useScroll, useTransform, useMotionTemplate, useMotionValue, useSpring } from "framer-motion";
 import { useRef } from "react";
 import { FEATURES_CONTENT } from "@/constants/home/features-constants";
+import type { FeatureItem } from "@/constants/home/features-constants";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
@@ -22,9 +23,9 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.8, ease } },
 };
 
-function FeatureCard({ feature, isFeatured }: any) {
-  let mouseX = useMotionValue(0);
-  let mouseY = useMotionValue(0);
+function FeatureCard({ feature, isFeatured }: { feature: FeatureItem; isFeatured: boolean }) {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
 
   // 3D Tilt values
   const rx = useMotionValue(0);
@@ -37,7 +38,7 @@ function FeatureCard({ feature, isFeatured }: any) {
     clientX,
     clientY,
   }: React.MouseEvent) {
-    let { left, top, width, height } = currentTarget.getBoundingClientRect();
+    const { left, top, width, height } = currentTarget.getBoundingClientRect();
 
     const x = clientX - left;
     const y = clientY - top;

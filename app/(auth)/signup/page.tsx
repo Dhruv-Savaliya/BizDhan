@@ -1,11 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldPath } from "react-hook-form";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, CheckCircle2, Sparkles } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { getSignupUserFields, buildUserExtraZodShape } from "@/types/user-schema";
@@ -150,11 +151,11 @@ export default function SignupPage() {
   }
 
   const nextStep = async () => {
-    let fieldsToValidate: any[] = [];
+    let fieldsToValidate: FieldPath<SignupFormValues>[] = [];
     if (step === 0) fieldsToValidate = ["signupMode"];
     if (step === 1) fieldsToValidate = ["fullName", "email", ...dynamicFields.map(f => f.name)];
     
-    const isValid = await form.trigger(fieldsToValidate as any);
+    const isValid = await form.trigger(fieldsToValidate);
     if (isValid) setStep((s) => Math.min(s + 1, 2));
   };
 
@@ -174,7 +175,7 @@ export default function SignupPage() {
     );
   }
 
-  const modeDescriptions: Record<string, { desc: string; icon: any }> = {
+  const modeDescriptions: Record<string, { desc: string; icon: LucideIcon }> = {
     personal: { desc: "Budgets, expenses & personal growth", icon: CheckCircle2 },
     sme: { desc: "Billing, dynamic invoicing & ledgers", icon: Sparkles },
     both: { desc: "Sync personal & biz in one cloud hub", icon: CheckCircle2 },
@@ -325,7 +326,7 @@ export default function SignupPage() {
                           <FormField
                             key={def.name}
                             control={form.control}
-                            name={def.name as any}
+                            name={def.name as FieldPath<SignupFormValues>}
                             render={({ field }) => (
                               <FormItem className={def.name === 'username' ? 'md:col-span-2' : ''}>
                                 <FormLabel className="text-white/50 font-black uppercase text-[10px] tracking-widest pl-1">{def.label}</FormLabel>

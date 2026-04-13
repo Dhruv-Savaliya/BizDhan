@@ -6,10 +6,11 @@ import { motion, useScroll, useTransform, useSpring, useMotionValue, useMotionTe
 import { useRef, useState, useEffect } from "react";
 import { HERO_CONTENT } from "@/constants/home/hero-constants";
 import { ArrowRight, Sparkles, Plus, TrendingUp, PieChart, ShieldCheck } from "lucide-react";
+import type { HomeMagneticButtonProps } from "@/types/home";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
-function MagneticButton({ children, className, variant, size, asChild, href }: any) {
+function MagneticButton({ children, className, variant, size, asChild, href }: HomeMagneticButtonProps) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const x = useMotionValue(0);
   const y = useMotionValue(0);

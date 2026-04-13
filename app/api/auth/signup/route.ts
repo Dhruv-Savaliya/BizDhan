@@ -107,11 +107,20 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Signup error:", error);
-    
+
+    const errorCode =
+      typeof error === "object" && error !== null && "code" in error
+        ? (error as { code?: string }).code
+        : undefined;
+    const errorMessage =
+      typeof error === "object" && error !== null && "message" in error
+        ? String((error as { message?: unknown }).message ?? "")
+        : "";
+
     // Specifically handle MongoDB connection issues with a better message
-    if (error.code === 'ECONNREFUSED' || error.message?.includes('mongodb')) {
+    if (errorCode === "ECONNREFUSED" || errorMessage.includes("mongodb")) {
       return NextResponse.json(
         { message: "Database connection failed. Please check your IP whitelist in MongoDB Atlas." },
         { status: 503 }

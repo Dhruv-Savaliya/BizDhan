@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Star, Quote } from "lucide-react";
 import Image from "next/image";
 import { TESTIMONIALS_CONTENT } from "@/constants/home/testimonials-constants";
+import type { Testimonial } from "@/constants/home/testimonials-constants";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
@@ -116,7 +117,7 @@ export function Testimonials() {
   );
 }
 
-function TestimonialCard({ testimonial }: { testimonial: any }) {
+function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
   return (
     <div className="w-[400px] shrink-0 py-4">
       <div className="h-full group relative bg-background/40 backdrop-blur-2xl rounded-3xl border border-white/5 p-8 flex flex-col shadow-2xl hover:shadow-[0_0_40px_rgba(45,212,191,0.15)] hover:-translate-y-2 hover:bg-black/10 dark:hover:bg-white/5 transition-all duration-500 overflow-hidden">

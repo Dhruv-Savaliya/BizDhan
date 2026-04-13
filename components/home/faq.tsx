@@ -3,10 +3,11 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus } from "lucide-react";
 import { FAQ_CONTENT } from "@/constants/home/faq-constants";
+import type { HomeFaqItem } from "@/types/home";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
-function FAQItem({ faq, index, isOpen, toggleOpen }: { faq: any, index: number, isOpen: boolean, toggleOpen: () => void }) {
+function FAQItem({ faq, index, isOpen, toggleOpen }: { faq: HomeFaqItem; index: number; isOpen: boolean; toggleOpen: () => void }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

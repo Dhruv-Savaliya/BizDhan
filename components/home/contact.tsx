@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Send, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { submitContactForm } from "@/app/actions/contact";
+import type { AnimatedInputProps } from "@/types/home";
 
 const ease = [0.16, 1, 0.3, 1] as const;
 
-function AnimatedInput({ id, label, isTextarea = false, ...props }: any) {
+function AnimatedInput({ id, label, isTextarea = false, ...props }: AnimatedInputProps) {
   const [isFocused, setIsFocused] = useState(false);
   const Component = isTextarea ? "textarea" : "input";
 
