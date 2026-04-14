@@ -43,7 +43,6 @@ export async function ensureIndexes(db?: Db) {
         {
           key: { email: 1 },
           unique: true,
-          name: "email_unique",
         },
         {
           key: { workspaceIds: 1 },
