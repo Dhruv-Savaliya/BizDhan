@@ -6,6 +6,8 @@ export function normalizeInvoiceInput(input: {
   invoiceNumber: unknown;
   partyName: unknown;
   clientEmail?: unknown;
+  itemName?: unknown;
+  quantity?: unknown;
   billType?: unknown;
   amount: unknown;
   currency?: unknown;
@@ -24,6 +26,13 @@ export function normalizeInvoiceInput(input: {
   if (!partyName) throw new Error("Party name is required");
 
   const clientEmailRaw = typeof input.clientEmail === "string" ? input.clientEmail.trim() : "";
+  const itemNameRaw = typeof input.itemName === "string" ? input.itemName.trim() : "";
+  const quantityNum =
+    input.quantity === undefined || input.quantity === null || input.quantity === ""
+      ? undefined
+      : typeof input.quantity === "number"
+        ? input.quantity
+        : Number(input.quantity);
 
   const billTypeRaw = typeof input.billType === "string" ? input.billType : "payable";
   const billType = billTypeRaw as InvoiceBillType;
@@ -32,6 +41,8 @@ export function normalizeInvoiceInput(input: {
   }
 
   let clientEmail: string | undefined;
+  let itemName: string | undefined;
+  let quantity: number | undefined;
   if (billType === "receivable") {
     if (!clientEmailRaw) {
       throw new Error("Client email is required for receivable invoices");
@@ -42,6 +53,16 @@ export function normalizeInvoiceInput(input: {
       throw new Error("Invalid client email");
     }
     clientEmail = email;
+
+    if (!itemNameRaw) {
+      throw new Error("Item name is required for receivable invoices");
+    }
+    itemName = itemNameRaw;
+
+    if (!Number.isFinite(quantityNum) || (quantityNum ?? 0) <= 0) {
+      throw new Error("Quantity must be a positive number for receivable invoices");
+    }
+    quantity = Number(quantityNum);
   }
 
   const amountNum = typeof input.amount === "number" ? input.amount : Number(input.amount);
@@ -90,6 +111,8 @@ export function normalizeInvoiceInput(input: {
     invoiceNumber,
     partyName,
     clientEmail,
+    itemName,
+    quantity,
     billType,
     amount: amountNum,
     currency,
@@ -107,6 +130,8 @@ export async function createInvoiceEntry(params: {
   invoiceNumber: string;
   partyName: string;
   clientEmail?: string;
+  itemName?: string;
+  quantity?: number;
   billType: InvoiceBillType;
   amount: number;
   currency: string;
@@ -124,6 +149,8 @@ export async function createInvoiceEntry(params: {
     invoiceNumber: params.invoiceNumber,
     partyName: params.partyName,
     clientEmail: params.clientEmail,
+    itemName: params.itemName,
+    quantity: params.quantity,
     billType: params.billType,
     amount: params.amount,
     currency: params.currency,

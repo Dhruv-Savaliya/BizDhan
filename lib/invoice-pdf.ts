@@ -44,6 +44,12 @@ async function buildInvoicePdfDoc(entry: InvoiceEntry) {
     ["Status", statusLabel(entry.status)],
     ["Issue date", new Date(entry.issuedAt).toLocaleString()],
   ];
+  if (entry.itemName) {
+    pairs.push(["Item", entry.itemName]);
+  }
+  if (typeof entry.quantity === "number") {
+    pairs.push(["Quantity", String(entry.quantity)]);
+  }
   if (entry.dueAt) {
     pairs.push(["Due date", new Date(entry.dueAt).toLocaleString()]);
   }

@@ -128,6 +128,15 @@ const schema = z
     invoiceNumber: z.string().min(1, "Invoice or bill number is required"),
     partyName: z.string().min(1, "Party name is required"),
     clientEmail: z.string().optional(),
+    itemName: z.string().optional(),
+    quantity: z.preprocess(
+      (value) => {
+        if (value === "" || value === null || value === undefined) return undefined;
+        const num = Number(value);
+        return Number.isFinite(num) ? num : value;
+      },
+      z.number().positive().optional()
+    ),
     billType: z.enum(["payable", "receivable"]),
     amount: z.coerce.number().positive(),
     currency: z.string().min(3).max(3).default("INR"),
@@ -139,6 +148,7 @@ const schema = z
   .superRefine((values, ctx) => {
     if (values.billType === "receivable") {
       const email = values.clientEmail?.trim();
+      const itemName = values.itemName?.trim();
       if (!email) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -150,6 +160,22 @@ const schema = z
           code: z.ZodIssueCode.custom,
           path: ["clientEmail"],
           message: "Enter a valid client email.",
+        });
+      }
+
+      if (!itemName) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["itemName"],
+          message: "Item name is required for receivable invoices.",
+        });
+      }
+
+      if (typeof values.quantity !== "number" || values.quantity <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["quantity"],
+          message: "Quantity must be a positive number.",
         });
       }
     }
@@ -228,6 +254,8 @@ export default function InvoicePage() {
       invoiceNumber: "",
       partyName: "",
       clientEmail: "",
+      itemName: "",
+      quantity: 1,
       billType: "receivable",
       amount: 0,
       currency: "INR",
@@ -242,7 +270,11 @@ export default function InvoicePage() {
   useEffect(() => {
     if (selectedBillType === "payable") {
       form.setValue("clientEmail", "");
+      form.setValue("itemName", "");
+      form.setValue("quantity", undefined);
       form.clearErrors("clientEmail");
+      form.clearErrors("itemName");
+      form.clearErrors("quantity");
     }
   }, [selectedBillType, form]);
 
@@ -271,7 +303,11 @@ export default function InvoicePage() {
       const res = await fetch("/api/tracker/invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({
+          ...values,
+          itemName: values.billType === "receivable" ? values.itemName : undefined,
+          quantity: values.billType === "receivable" ? values.quantity : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to create invoice");
@@ -289,6 +325,8 @@ export default function InvoicePage() {
         invoiceNumber: "",
         partyName: "",
         clientEmail: values.billType === "receivable" ? values.clientEmail ?? "" : "",
+        itemName: values.billType === "receivable" ? values.itemName ?? "" : "",
+        quantity: values.billType === "receivable" ? values.quantity : undefined,
         billType: values.billType,
         amount: 0,
         currency: values.currency,
@@ -480,25 +518,68 @@ export default function InvoicePage() {
                     />
 
                     {selectedBillType === "receivable" && (
-                      <FormField
-                        control={form.control}
-                        name="clientEmail"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client Email</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="email"
-                                placeholder="client@example.com"
-                                className="rounded-xl h-11"
-                                {...field}
-                                disabled={submitting}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="space-y-3">
+                        <FormField
+                          control={form.control}
+                          name="clientEmail"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client Email</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="email"
+                                  placeholder="client@example.com"
+                                  className="rounded-xl h-11"
+                                  {...field}
+                                  disabled={submitting}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid grid-cols-2 gap-3">
+                          <FormField
+                            control={form.control}
+                            name="itemName"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Item Name</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    placeholder="Same as purchase item"
+                                    className="rounded-xl h-11"
+                                    {...field}
+                                    disabled={submitting}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name="quantity"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Quantity</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min={1}
+                                    step="any"
+                                    className="rounded-xl h-11"
+                                    value={field.value ?? ""}
+                                    onChange={(event) => field.onChange(event.target.value)}
+                                    disabled={submitting}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
                     )}
 
                     {/* Status */}

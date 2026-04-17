@@ -9,6 +9,8 @@ export interface InvoiceEntry {
   invoiceNumber: string;
   partyName: string;
   clientEmail?: string;
+  itemName?: string;
+  quantity?: number;
   billType: InvoiceBillType;
   amount: number;
   currency: string;

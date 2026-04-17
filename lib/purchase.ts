@@ -122,3 +122,65 @@ export async function listPurchaseEntries(params: {
 
   return items;
 }
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export async function getAvailableStockForItem(params: {
+  db: Db;
+  userId: string;
+  workspaceId: string;
+  itemName: string;
+}) {
+  const itemName = params.itemName.trim();
+  const regex = new RegExp(`^${escapeRegex(itemName)}$`, "i");
+
+  const rows = await params.db
+    .collection<PurchaseEntry>("purchase_entries")
+    .find({
+      userId: params.userId,
+      workspaceId: params.workspaceId,
+      itemName: regex,
+      quantity: { $gt: 0 },
+    })
+    .sort({ purchasedAt: 1, created_at: 1 })
+    .toArray();
+
+  const total = rows.reduce((sum, row) => sum + (Number(row.quantity) || 0), 0);
+  return { rows, total };
+}
+
+export async function consumeStockForItem(params: {
+  db: Db;
+  userId: string;
+  workspaceId: string;
+  itemName: string;
+  quantity: number;
+}) {
+  let remaining = params.quantity;
+  if (remaining <= 0) return;
+
+  const { rows } = await getAvailableStockForItem(params);
+  const nowIso = new Date().toISOString();
+
+  for (const row of rows) {
+    if (remaining <= 0) break;
+    const available = Number(row.quantity) || 0;
+    if (available <= 0) continue;
+
+    const deduction = Math.min(available, remaining);
+    const nextQty = available - deduction;
+
+    await params.db.collection<PurchaseEntry>("purchase_entries").updateOne(
+      { id: row.id, userId: params.userId, workspaceId: params.workspaceId },
+      { $set: { quantity: nextQty, updated_at: nowIso } }
+    );
+
+    remaining -= deduction;
+  }
+
+  if (remaining > 0) {
+    throw new Error("Insufficient stock while applying invoice quantity");
+  }
+}

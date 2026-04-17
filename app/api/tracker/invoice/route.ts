@@ -9,6 +9,7 @@ import {
 } from "@/lib/invoice";
 import { generateInvoicePdfBuffer } from "@/lib/invoice-pdf-server";
 import { sendInvoiceEmail } from "@/lib/email";
+import { consumeStockForItem, getAvailableStockForItem } from "@/lib/purchase";
 
 export async function DELETE(request: Request) {
   const user = await getCurrentUserAction();
@@ -89,12 +90,59 @@ export async function POST(request: Request) {
     const normalized = normalizeInvoiceInput(body ?? {});
 
     const db = await getMongoDb();
+    if (normalized.billType === "receivable") {
+      if (!normalized.itemName || !normalized.quantity) {
+        return NextResponse.json(
+          { message: "Item name and quantity are required for receivable invoices." },
+          { status: 400 }
+        );
+      }
+
+      const stock = await getAvailableStockForItem({
+        db,
+        userId: user.id,
+        workspaceId,
+        itemName: normalized.itemName,
+      });
+
+      if (stock.total <= 0) {
+        return NextResponse.json(
+          { message: `No purchase stock found for "${normalized.itemName}". Add purchase first.` },
+          { status: 400 }
+        );
+      }
+
+      if (stock.total < normalized.quantity) {
+        return NextResponse.json(
+          {
+            message: `Insufficient stock for "${normalized.itemName}". Available: ${stock.total}, required: ${normalized.quantity}.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const created = await createInvoiceEntry({
       db,
       userId: user.id,
       workspaceId,
       ...normalized,
     });
+
+    if (
+      created.billType === "receivable" &&
+      created.itemName &&
+      typeof created.quantity === "number" &&
+      created.quantity > 0
+    ) {
+      await consumeStockForItem({
+        db,
+        userId: user.id,
+        workspaceId,
+        itemName: created.itemName,
+        quantity: created.quantity,
+      });
+    }
 
     let emailSent = false;
     if (created.billType === "receivable" && created.clientEmail) {
