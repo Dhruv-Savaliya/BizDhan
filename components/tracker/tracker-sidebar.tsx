@@ -39,6 +39,7 @@ const getIconForLabel = (label: string): LucideIcon => {
   if (normalized.includes("purchase")) return ShoppingCart;
   if (normalized.includes("invoice")) return FileText;
   if (normalized.includes("summary")) return LayoutDashboard;
+  if (normalized.includes("profile")) return UserCircle;
   return LayoutDashboard;
 };
 
@@ -190,20 +191,6 @@ export function TrackerSidebar({
 
         {/* Bottom Section */}
         <div className="px-6 pt-6 mt-auto flex flex-col gap-3">
-          {/* Profile Link */}
-          <Link
-            href="/tracker/profile"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
-              pathname === "/tracker/profile"
-                ? "bg-primary/10 text-primary"
-                : "text-foreground/70 hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            <UserCircle className={`h-4 w-4 ${
-              pathname === "/tracker/profile" ? "text-primary" : "text-muted-foreground"
-            }`} />
-            <span className="text-sm font-medium">Profile</span>
-          </Link>
           <div className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/30 p-2">
             <span className="text-xs font-medium text-muted-foreground px-2">Theme</span>
             <ThemeToggle />

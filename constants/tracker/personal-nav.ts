@@ -4,4 +4,5 @@ export const PERSONAL_TRACKER_NAV = [
   { href: "/tracker/expense", label: "Expense", sub: null },
   { href: "/tracker/invest", label: "Invest", sub: "Expense − income" },
   { href: "/tracker/report", label: "Report", sub: null },
+  { href: "/tracker/profile", label: "Profile", sub: "Settings & account" as string | null },
 ] as const;

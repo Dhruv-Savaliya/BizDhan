@@ -10,4 +10,5 @@ export const SME_TRACKER_NAV = [
   },
   { href: "/tracker/summary", label: "Summary", sub: "Runway, health, leaks" },
   { href: "/tracker/report", label: "Report", sub: "AI summary" },
+  { href: "/tracker/profile", label: "Profile", sub: "Settings & account" },
 ] as const;
