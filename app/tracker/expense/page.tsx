@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Resolver } from "react-hook-form";
-import { Loader2, Plus, Wallet, Inbox } from "lucide-react";
+import { Loader2, Plus, Wallet, Inbox, ScanLine, UploadCloud, RefreshCw } from "lucide-react";
 
 import type { ExpenseCategory, ExpenseEntry } from "@/types/expense";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrackerActionMenu } from "@/components/tracker/action-menu";
 import { TrackerFilterBar, type SortOption } from "@/components/tracker/filter-bar";
@@ -81,6 +82,11 @@ function formatDate(iso: string) {
   }).format(d);
 }
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
+};
+
 const itemVariants = {
   hidden: { opacity: 0, x: -10, height: 0, marginBottom: 0 },
   show: { opacity: 1, x: 0, height: "auto", marginBottom: 12, transition: { duration: 0.3 } },
@@ -95,6 +101,7 @@ export default function ExpensePage() {
   const [ocrModelUsed, setOcrModelUsed] = useState<OcrModelUsed | null>(null);
   
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"add" | "entries">("add");
   
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
@@ -277,6 +284,7 @@ export default function ExpensePage() {
         setItems(prev => prev.map(p => p.id === editingId ? { ...p, ...values, id: editingId } as ExpenseEntry : p));
         toast.success("Expense updated successfully");
         setEditingId(null);
+        setActiveTab("entries");
       } else {
         const res = await fetch("/api/tracker/expense", {
           method: "POST",
@@ -287,6 +295,7 @@ export default function ExpensePage() {
         if (!res.ok) throw new Error(data.message || "Failed to add expense");
 
         toast.success("Expense added successfully");
+        setActiveTab("entries");
         await refresh();
       }
       
@@ -335,6 +344,7 @@ export default function ExpensePage() {
       spentAt: item.spentAt ? new Date(item.spentAt).toISOString().slice(0, 16) : "",
       notes: item.notes || "",
     });
+    setActiveTab("add");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -379,40 +389,66 @@ export default function ExpensePage() {
   }, [items, searchQuery, dateRange, sortBy]);
 
   return (
-    <motion.main 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="pb-10 pt-4"
+    <motion.main
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="pb-12 pt-2"
     >
-      <div className="mx-auto w-full max-w-4xl">
-        <Card className="glass shadow-xl rounded-[2rem] border-primary/10 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -z-10" />
-          
-          <CardHeader className="px-8 pt-8 pb-6 border-b border-border/50 bg-muted/20">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Wallet className="h-6 w-6 text-primary" aria-hidden />
-              </div>
-              <div>
-                <CardTitle className="text-2xl font-bold tracking-tight">Expense</CardTitle>
-                <CardDescription className="text-base mt-1">
-                  Record rent, marketing, utilities, and other spending.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
+      <div className="mx-auto w-full max-w-5xl space-y-8">
+        {/* ── Page Header ── */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" className="flex items-end justify-between gap-4 px-1">
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+              My Expenses
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Extract expense details instantly with AI or add them manually.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void refresh()}
+            disabled={loading || submitting}
+            className="rounded-xl border-border/60 gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </motion.div>
 
-          <CardContent className="p-4 sm:p-8 space-y-10">
-            {/* Input Form */}
-            <div className="bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50 p-6 shadow-sm relative overflow-hidden">
-              {editingId && (
-                <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-              )}
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  {editingId ? "Edit Entry" : "New Entry"}
-                </h3>
+        {/* ── Tabs for Form and List ── */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.15 }}>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "add" | "entries")} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/50 p-1 rounded-xl">
+              <TabsTrigger value="add" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">Scan / Add Entry</TabsTrigger>
+              <TabsTrigger value="entries" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">All Entries</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="add" className="mt-0">
+          {/* ── New Expense Form ── */}
+          <Card className="rounded-2xl border-border/40 shadow-lg overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500/60 via-violet-500/60 to-emerald-500/60" />
+            <div className="absolute bottom-0 right-0 w-72 h-72 bg-primary/3 rounded-full blur-[80px] -z-10" />
+            {editingId && (
+              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+            )}
+
+            <CardHeader className="px-6 sm:px-8 pt-7 pb-5">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <ScanLine className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg font-bold tracking-tight">{editingId ? "Edit Expense" : "New Expense"}</CardTitle>
+                    <CardDescription className="text-sm mt-0.5">
+                      Record a new expense manually or via OCR.
+                    </CardDescription>
+                  </div>
+                </div>
                 {editingId && (
                   <Button variant="ghost" size="sm" onClick={() => {
                     setEditingId(null);
@@ -422,38 +458,63 @@ export default function ExpensePage() {
                   </Button>
                 )}
               </div>
+            </CardHeader>
+
+            <CardContent className="px-6 sm:px-8 pb-8">
               
               {!editingId && (
-                <div className="mb-6 flex flex-wrap items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 rounded-xl"
-                    disabled={submitting || scanningReceipt}
+                <div className="mb-8">
+                  <div 
                     onClick={() => document.getElementById("receipt-upload-input")?.click()}
+                    className={`relative group cursor-pointer border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
+                      scanningReceipt 
+                        ? "border-primary/50 bg-primary/5" 
+                        : "border-border hover:border-primary/50 hover:bg-muted/30"
+                    }`}
                   >
-                    {scanningReceipt ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Scanning receipt...
-                      </>
-                    ) : (
-                      "Upload Receipt"
-                    )}
-                  </Button>
-                  <input
-                    id="receipt-upload-input"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    className="hidden"
-                    onChange={(event) => void handleReceiptUpload(event)}
-                    disabled={submitting || scanningReceipt}
-                  />
-                  {ocrModelUsed ? (
-                    <Badge variant="secondary" className="rounded-lg px-2.5 py-1">
-                      {modelBadgeLabel(ocrModelUsed)}
-                    </Badge>
-                  ) : null}
+                    <input
+                      id="receipt-upload-input"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      className="hidden"
+                      onChange={(event) => void handleReceiptUpload(event)}
+                      disabled={submitting || scanningReceipt}
+                    />
+                    
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        {scanningReceipt ? (
+                          <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                        ) : (
+                          <UploadCloud className="h-6 w-6 text-primary" />
+                        )}
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-lg text-foreground">
+                          {scanningReceipt ? "Analyzing Receipt..." : "Upload or Take a Photo"}
+                        </h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {scanningReceipt 
+                            ? "Extracting amounts, dates, and merchants using AI" 
+                            : "Supports JPG, PNG, WEBP, and PDF up to 5MB"}
+                        </p>
+                      </div>
+                      
+                      {ocrModelUsed && !scanningReceipt && (
+                        <div className="mt-2">
+                          <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20 border-0 rounded-lg px-3 py-1 font-medium">
+                            ✓ {modelBadgeLabel(ocrModelUsed)}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-4 mt-8 mb-4">
+                    <div className="flex-1 h-px bg-border/50"></div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Or enter manually</span>
+                    <div className="flex-1 h-px bg-border/50"></div>
+                  </div>
                 </div>
               )}
               
@@ -603,23 +664,17 @@ export default function ExpensePage() {
                   </div>
                 </form>
               </Form>
-            </div>
+            </CardContent>
+          </Card>
+            </TabsContent>
 
-            {/* List */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Entries</h3>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => void refresh()} 
-                  disabled={loading || submitting}
-                  className="rounded-lg h-8 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {loading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : "Refresh"}
-                </Button>
-              </div>
+            <TabsContent value="entries" className="mt-0">
+        {/* ── Expense Entries ── */}
+          <div className="flex items-center justify-between mb-4 px-1">
+            <h2 className="text-lg font-bold tracking-tight text-foreground">
+              Entries
+            </h2>
+          </div>
 
               {items.length > 0 && (
                 <TrackerFilterBar
@@ -714,9 +769,9 @@ export default function ExpensePage() {
                   </AnimatePresence>
                 </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
+              </TabsContent>
+          </Tabs>
+        </motion.div>
       </div>
     </motion.main>
   );

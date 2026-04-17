@@ -35,6 +35,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -136,6 +137,7 @@ export default function InvestPage() {
   const [items, setItems] = useState<InvestmentEntry[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"add" | "entries">("add");
 
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
@@ -216,6 +218,7 @@ export default function InvestPage() {
         setItems(prev => prev.map(p => p.id === editingId ? { ...p, ...values, id: editingId } as InvestmentEntry : p));
         toast.success("Investment updated successfully");
         setEditingId(null);
+        setActiveTab("entries");
       } else {
         const res = await fetch("/api/tracker/invest", {
           method: "POST",
@@ -226,6 +229,7 @@ export default function InvestPage() {
         if (!res.ok) throw new Error(data.message || "Failed to add investment");
 
         toast.success("Investment added successfully");
+        setActiveTab("entries");
         await refresh();
       }
       form.reset({ ...values, amount: 0, assetName: "", notes: "" });
@@ -266,6 +270,7 @@ export default function InvestPage() {
       investedAt: item.investedAt ? new Date(item.investedAt).toISOString().slice(0, 16) : "",
       notes: item.notes || "",
     });
+    setActiveTab("add");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -461,8 +466,16 @@ export default function InvestPage() {
           )}
         </motion.div>
 
-        {/* ── New Investment Form ── */}
+        {/* ── Tabs for Form and List ── */}
         <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.15 }}>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "add" | "entries")} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/50 p-1 rounded-xl">
+              <TabsTrigger value="add" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">New Investment</TabsTrigger>
+              <TabsTrigger value="entries" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">All Investments</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="add" className="mt-0">
+          {/* ── New Investment Form ── */}
           <Card className="rounded-2xl border-border/40 shadow-lg overflow-hidden relative">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500/60 via-violet-500/60 to-emerald-500/60" />
             <div className="absolute bottom-0 right-0 w-72 h-72 bg-primary/3 rounded-full blur-[80px] -z-10" />
@@ -677,10 +690,10 @@ export default function InvestPage() {
               </Form>
             </CardContent>
           </Card>
-        </motion.div>
+            </TabsContent>
 
+            <TabsContent value="entries" className="mt-0">
         {/* ── Investment Entries ── */}
-        <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.25 }}>
           <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-lg font-bold tracking-tight text-foreground">
               Entries
@@ -798,6 +811,8 @@ export default function InvestPage() {
               </AnimatePresence>
             </div>
           )}
+            </TabsContent>
+          </Tabs>
         </motion.div>
       </div>
     </motion.main>

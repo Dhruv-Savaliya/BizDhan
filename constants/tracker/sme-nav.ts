@@ -6,7 +6,7 @@ export const SME_TRACKER_NAV = [
   {
     href: "/tracker/expense",
     label: "Expense",
-    sub: "Rent, marketing, store",
+    sub: "Scan and record expenses",
   },
   { href: "/tracker/summary", label: "Summary", sub: "Runway, health, leaks" },
   { href: "/tracker/report", label: "Report", sub: "AI summary" },

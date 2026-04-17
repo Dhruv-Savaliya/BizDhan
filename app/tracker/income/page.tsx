@@ -5,13 +5,14 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Resolver } from "react-hook-form";
-import { Loader2, Plus, TrendingUp, Inbox } from "lucide-react";
+import { Loader2, Plus, TrendingUp, Inbox, RefreshCw } from "lucide-react";
 
 import type { IncomeCategory, IncomeEntry } from "@/types/income";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import { TrackerActionMenu } from "@/components/tracker/action-menu";
 import { TrackerFilterBar, type SortOption } from "@/components/tracker/filter-bar";
@@ -49,6 +50,11 @@ function formatDate(iso: string) {
   }).format(d);
 }
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
+};
+
 const itemVariants = {
   hidden: { opacity: 0, x: -10, height: 0, marginBottom: 0 },
   show: { opacity: 1, x: 0, height: "auto", marginBottom: 12, transition: { duration: 0.3 } },
@@ -60,6 +66,7 @@ export default function IncomePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"add" | "entries">("add");
   
   // Filters state
   const [searchQuery, setSearchQuery] = useState("");
@@ -125,6 +132,7 @@ export default function IncomePage() {
         setItems(prev => prev.map(p => p.id === editingId ? { ...p, ...values, id: editingId } as IncomeEntry : p));
         toast.success("Income updated successfully");
         setEditingId(null);
+        setActiveTab("entries");
       } else {
         const res = await fetch("/api/tracker/income", {
           method: "POST",
@@ -135,6 +143,7 @@ export default function IncomePage() {
         if (!res.ok) throw new Error(data.message || "Failed to add income");
   
         toast.success("Income added successfully");
+        setActiveTab("entries");
         await refresh();
       }
       
@@ -185,6 +194,7 @@ export default function IncomePage() {
       receivedAt: item.receivedAt ? new Date(item.receivedAt).toISOString().slice(0, 16) : "",
       notes: item.notes || "",
     });
+    setActiveTab("add");
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -229,42 +239,66 @@ export default function IncomePage() {
   }, [items, searchQuery, dateRange, sortBy]);
 
   return (
-    <motion.main 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="pb-10 pt-4"
+    <motion.main
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+      className="pb-12 pt-2"
     >
-      <div className="mx-auto w-full max-w-4xl">
-        <Card className="glass shadow-xl rounded-[2rem] border-primary/10 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -z-10" />
-          
-          <CardHeader className="px-8 pt-8 pb-6 border-b border-border/50 bg-muted/20">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-                  <TrendingUp className="h-6 w-6 text-primary" aria-hidden />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl font-bold tracking-tight">Income</CardTitle>
-                  <CardDescription className="text-base mt-1">
-                    Record revenue and profit-related inflows.
-                  </CardDescription>
-                </div>
-              </div>
-            </div>
-          </CardHeader>
+      <div className="mx-auto w-full max-w-5xl space-y-8">
+        {/* ── Page Header ── */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" className="flex items-end justify-between gap-4 px-1">
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+              Income
+            </h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Record revenue and profit-related inflows.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void refresh()}
+            disabled={loading || submitting}
+            className="rounded-xl border-border/60 gap-2 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+        </motion.div>
 
-          <CardContent className="p-4 sm:p-8 space-y-10">
-            {/* Input Form */}
-            <div className="bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50 p-6 shadow-sm relative overflow-hidden">
-              {editingId && (
-                <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-              )}
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                  {editingId ? "Edit Entry" : "New Entry"}
-                </h3>
+        {/* ── Tabs for Form and List ── */}
+        <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.15 }}>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "add" | "entries")} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/50 p-1 rounded-xl">
+              <TabsTrigger value="add" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">New Entry</TabsTrigger>
+              <TabsTrigger value="entries" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm">All Entries</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="add" className="mt-0">
+          {/* ── New Income Form ── */}
+          <Card className="rounded-2xl border-border/40 shadow-lg overflow-hidden relative">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500/60 via-violet-500/60 to-emerald-500/60" />
+            <div className="absolute bottom-0 right-0 w-72 h-72 bg-primary/3 rounded-full blur-[80px] -z-10" />
+            {editingId && (
+              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+            )}
+
+            <CardHeader className="px-6 sm:px-8 pt-7 pb-5">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg font-bold tracking-tight">{editingId ? "Edit Income" : "New Income"}</CardTitle>
+                    <CardDescription className="text-sm mt-0.5">
+                      Record a new income entry.
+                    </CardDescription>
+                  </div>
+                </div>
                 {editingId && (
                   <Button variant="ghost" size="sm" onClick={() => {
                     setEditingId(null);
@@ -274,6 +308,9 @@ export default function IncomePage() {
                   </Button>
                 )}
               </div>
+            </CardHeader>
+
+            <CardContent className="px-6 sm:px-8 pb-8">
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -420,23 +457,17 @@ export default function IncomePage() {
                   </div>
                 </form>
               </Form>
-            </div>
+            </CardContent>
+          </Card>
+            </TabsContent>
 
-            {/* List Section */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Entries</h3>
-                <Button 
-                  type="button" 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => void refresh()} 
-                  disabled={loading || submitting}
-                  className="rounded-lg h-8 text-xs text-muted-foreground hover:text-foreground"
-                >
-                  {loading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : "Refresh"}
-                </Button>
-              </div>
+            <TabsContent value="entries" className="mt-0">
+        {/* ── Income Entries ── */}
+          <div className="flex items-center justify-between mb-4 px-1">
+            <h2 className="text-lg font-bold tracking-tight text-foreground">
+              Entries
+            </h2>
+          </div>
 
               {items.length > 0 && (
                 <TrackerFilterBar
@@ -531,9 +562,9 @@ export default function IncomePage() {
                   </AnimatePresence>
                 </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
+              </TabsContent>
+          </Tabs>
+        </motion.div>
       </div>
     </motion.main>
   );
