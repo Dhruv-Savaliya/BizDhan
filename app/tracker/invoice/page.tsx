@@ -123,17 +123,31 @@ function StatusBadge({ status }: { status: InvoiceStatus }) {
 }
 
 /* ── Schema ── */
-const schema = z.object({
-  invoiceNumber: z.string().min(1, "Invoice or bill number is required"),
-  partyName: z.string().min(1, "Party name is required"),
-  billType: z.enum(["payable", "receivable"]),
-  amount: z.coerce.number().positive(),
-  currency: z.string().min(3).max(3).default("INR"),
-  issuedAt: z.string().optional(),
-  dueAt: z.string().optional(),
-  status: z.enum(["draft", "unpaid", "partial", "paid", "overdue"]),
-  notes: z.string().optional(),
-});
+const schema = z
+  .object({
+    invoiceNumber: z.string().min(1, "Invoice or bill number is required"),
+    partyName: z.string().min(1, "Party name is required"),
+    billType: z.enum(["payable", "receivable"]),
+    amount: z.coerce.number().positive(),
+    currency: z.string().min(3).max(3).default("INR"),
+    issuedAt: z.string().optional(),
+    dueAt: z.string().optional(),
+    status: z.enum(["draft", "unpaid", "partial", "paid", "overdue"]),
+    notes: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (!values.dueAt) return;
+    const dueDate = new Date(values.dueAt);
+    if (Number.isNaN(dueDate.getTime())) return;
+
+    if (dueDate.getTime() < Date.now()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dueAt"],
+        message: "Due date must be current or future.",
+      });
+    }
+  });
 
 type FormValues = z.infer<typeof schema>;
 
@@ -177,7 +191,16 @@ export default function InvoicePage() {
   const [submitting, setSubmitting] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const maxDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
+  const now = new Date();
+  const toLocalDateTimeInput = (date: Date) =>
+    new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  const issueMinDateTime = toLocalDateTimeInput(
+    new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+  );
+  const issueMaxDateTime = toLocalDateTimeInput(
+    new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 0, 0)
+  );
+  const minDueDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
 
@@ -480,7 +503,14 @@ export default function InvoicePage() {
                           <FormItem>
                             <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Issue Date</FormLabel>
                             <FormControl>
-                              <Input type="datetime-local" max={maxDateTime} className="rounded-xl h-11 w-full" {...field} disabled={submitting} />
+                              <Input
+                                type="datetime-local"
+                                min={issueMinDateTime}
+                                max={issueMaxDateTime}
+                                className="rounded-xl h-11 w-full"
+                                {...field}
+                                disabled={submitting}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -493,7 +523,13 @@ export default function InvoicePage() {
                           <FormItem>
                             <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Due Date</FormLabel>
                             <FormControl>
-                              <Input type="datetime-local" className="rounded-xl h-11 w-full" {...field} disabled={submitting} />
+                              <Input
+                                type="datetime-local"
+                                min={minDueDateTime}
+                                className="rounded-xl h-11 w-full"
+                                {...field}
+                                disabled={submitting}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
