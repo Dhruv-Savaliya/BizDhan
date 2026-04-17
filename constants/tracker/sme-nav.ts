@@ -1,4 +1,5 @@
 export const SME_TRACKER_NAV = [
+  { href: "/tracker/dashboard", label: "Dashboard", sub: "Overview" },
   { href: "/tracker/purchase", label: "Purchase", sub: "Inventory" },
   { href: "/tracker/invoice", label: "Invoice", sub: "Bills" },
   { href: "/tracker/income", label: "Income", sub: "Profit" },

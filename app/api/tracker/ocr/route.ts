@@ -120,7 +120,7 @@ async function getUserIdFromCookie(): Promise<string | null> {
 }
 
 async function extractTextFromPdf(fileBuffer: Buffer): Promise<string> {
-  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const pdfjs = await import("pdfjs-dist");
   const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(fileBuffer),
     disableWorker: true,

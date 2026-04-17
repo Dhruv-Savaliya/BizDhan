@@ -245,7 +245,7 @@ export default function ExpensePage() {
       const res = await fetch("/api/tracker/expense?limit=100", { method: "GET" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to load expenses");
-      setItems((data.items ?? []) as ExpenseEntry[]);
+      setItems((data.data ?? []) as ExpenseEntry[]);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to load expenses";
       toast.error(message);

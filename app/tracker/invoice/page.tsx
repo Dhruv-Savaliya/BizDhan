@@ -284,7 +284,7 @@ export default function InvoicePage() {
       const res = await fetch("/api/tracker/invoice?limit=100", { method: "GET" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to load invoices");
-      setItems((data.items ?? []) as InvoiceEntry[]);
+      setItems((data.data ?? []) as InvoiceEntry[]);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to load invoices";
       toast.error(message);

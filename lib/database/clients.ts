@@ -1,5 +1,11 @@
 import type { Db } from "mongodb";
 import { ensureIndexes } from "@/lib/db/indexes";
+import dns from "dns";
+
+// Force Google DNS to avoid ISP-related resolution issues with MongoDB SRV records
+if (typeof window === "undefined") {
+  dns.setServers(["8.8.8.8", "8.8.4.4"]);
+}
 
 let cachedMongoDb: Db | null = null;
 

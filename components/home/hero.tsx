@@ -208,44 +208,163 @@ export function Hero() {
             {/* Mock Dashboard UI */}
             <div className="relative z-10 w-full h-full rounded-[2rem] bg-card dark:bg-[#050508]/80 border border-border dark:border-white/5 overflow-hidden flex flex-col">
               {/* Header */}
-              <div className="h-16 border-b border-border dark:border-white/5 bg-muted/30 dark:bg-white/[0.02] flex items-center px-8 justify-between">
+              <div className="h-14 border-b border-border dark:border-white/5 bg-muted/30 dark:bg-white/[0.02] flex items-center px-6 sm:px-8 justify-between">
                 <div className="flex gap-2">
                   <div className="w-3 h-3 rounded-full bg-red-400" />
                   <div className="w-3 h-3 rounded-full bg-yellow-400" />
                   <div className="w-3 h-3 rounded-full bg-green-400" />
                 </div>
-                <div className="px-4 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[10px] font-mono text-muted-foreground tracking-widest uppercase">
+                <div className="px-4 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[9px] sm:text-[10px] font-mono text-muted-foreground tracking-widest uppercase">
                   HTTPS://BIZDHAN.IO/REALTIME-TRACKER
                 </div>
-                <div className="w-8 h-8 rounded-full bg-primary/20" />
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/30 to-accent/30 border border-white/10" />
               </div>
 
               {/* Main Area */}
-              <div className="flex-1 p-8 grid grid-cols-12 gap-6">
-                <div className="col-span-3 space-y-4">
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} className={`h-12 rounded-xl border border-white/5 ${i === 0 ? 'bg-primary/20' : 'bg-white/5'}`} />
-                  ))}
-                </div>
-                <div className="col-span-9 space-y-6">
-                  <div className="grid grid-cols-3 gap-6">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="h-32 rounded-2xl bg-muted/50 dark:bg-white/[0.03] border border-border dark:border-white/5 p-5">
-                         <div className="w-10 h-2 bg-foreground/10 dark:bg-white/10 rounded mb-4" />
-                         <div className="w-20 h-6 bg-foreground/20 dark:bg-white/20 rounded" />
+              <div className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-5 overflow-hidden">
+                {/* KPI Cards Row */}
+                <div className="grid grid-cols-3 gap-3 sm:gap-4">
+                  {/* Revenue */}
+                  <div className="rounded-xl sm:rounded-2xl bg-muted/40 dark:bg-white/[0.03] border border-border dark:border-white/5 p-3 sm:p-4 group">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                        <TrendingUp className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-400" />
                       </div>
-                    ))}
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Revenue</span>
+                    </div>
+                    <div className="text-base sm:text-xl lg:text-2xl font-black text-foreground tabular-nums tracking-tight">$48,750</div>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-emerald-400">↑ 12.5%</span>
+                      <span className="text-[8px] sm:text-[9px] text-muted-foreground/60">vs last mo</span>
+                    </div>
                   </div>
-                  <div className="flex-1 min-h-[250px] rounded-2xl bg-white/[0.02] border border-white/5 p-6 flex items-end justify-between">
-                    {[40, 70, 45, 90, 65, 80, 50, 100, 75, 85, 60, 95].map((h, i) => (
-                      <motion.div 
-                        key={i} 
-                        initial={{ height: 0 }}
-                        whileInView={{ height: `${h}%` }}
-                        transition={{ delay: i * 0.05, duration: 1, ease: "circOut" }}
-                        className="w-[6%] bg-gradient-to-t from-primary to-accent rounded-t-lg shadow-[0_0_20px_rgba(45,212,191,0.3)]" 
-                      />
-                    ))}
+                  {/* Expenses */}
+                  <div className="rounded-xl sm:rounded-2xl bg-muted/40 dark:bg-white/[0.03] border border-border dark:border-white/5 p-3 sm:p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-rose-500/15 flex items-center justify-center">
+                        <ShieldCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-rose-400" />
+                      </div>
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Expenses</span>
+                    </div>
+                    <div className="text-base sm:text-xl lg:text-2xl font-black text-foreground tabular-nums tracking-tight">$12,340</div>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-rose-400">↑ 3.2%</span>
+                      <span className="text-[8px] sm:text-[9px] text-muted-foreground/60">vs last mo</span>
+                    </div>
+                  </div>
+                  {/* Growth */}
+                  <div className="rounded-xl sm:rounded-2xl bg-muted/40 dark:bg-white/[0.03] border border-border dark:border-white/5 p-3 sm:p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-primary/15 flex items-center justify-center">
+                        <Sparkles className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" />
+                      </div>
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Growth</span>
+                    </div>
+                    <div className="text-base sm:text-xl lg:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent tabular-nums tracking-tight">+24.8%</div>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-emerald-400">↑ 4.1%</span>
+                      <span className="text-[8px] sm:text-[9px] text-muted-foreground/60">vs last mo</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Chart + Transactions Layout */}
+                <div className="flex-1 grid grid-cols-12 gap-3 sm:gap-4 min-h-0">
+                  {/* Animated Line Chart */}
+                  <div className="col-span-7 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/5 p-3 sm:p-5 flex flex-col">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Revenue Overview</span>
+                      <div className="flex gap-1">
+                        {["W", "M", "Y"].map((t, i) => (
+                          <div key={t} className={`px-2 py-0.5 rounded-md text-[8px] sm:text-[9px] font-bold ${i === 1 ? 'bg-primary/20 text-primary' : 'text-muted-foreground/50'}`}>{t}</div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex-1 relative min-h-[80px]">
+                      <svg viewBox="0 0 400 120" className="w-full h-full" preserveAspectRatio="none">
+                        <defs>
+                          <linearGradient id="heroChartGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="rgba(139,107,255,0.3)" />
+                            <stop offset="100%" stopColor="rgba(139,107,255,0)" />
+                          </linearGradient>
+                        </defs>
+                        {/* Grid lines */}
+                        {[30, 60, 90].map(y => (
+                          <line key={y} x1="0" y1={y} x2="400" y2={y} stroke="currentColor" className="text-border" strokeWidth="0.5" opacity="0.3" />
+                        ))}
+                        {/* Gradient fill */}
+                        <motion.path
+                          d="M0,95 C30,85 60,70 100,62 C140,54 170,58 200,48 C230,38 260,42 300,30 C340,18 370,22 400,15 L400,120 L0,120 Z"
+                          fill="url(#heroChartGrad)"
+                          initial={{ opacity: 0 }}
+                          whileInView={{ opacity: 1 }}
+                          transition={{ delay: 0.5, duration: 1 }}
+                        />
+                        {/* Line */}
+                        <motion.path
+                          d="M0,95 C30,85 60,70 100,62 C140,54 170,58 200,48 C230,38 260,42 300,30 C340,18 370,22 400,15"
+                          fill="none"
+                          stroke="url(#heroLineGrad)"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          initial={{ pathLength: 0 }}
+                          whileInView={{ pathLength: 1 }}
+                          transition={{ duration: 2, ease: "easeOut", delay: 0.3 }}
+                        />
+                        <defs>
+                          <linearGradient id="heroLineGrad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stopColor="#8B6BFF" />
+                            <stop offset="100%" stopColor="#00E5BB" />
+                          </linearGradient>
+                        </defs>
+                        {/* Data points */}
+                        {[[100,62],[200,48],[300,30],[400,15]].map(([cx,cy], i) => (
+                          <motion.circle
+                            key={i}
+                            cx={cx}
+                            cy={cy}
+                            r="3"
+                            fill="#8B6BFF"
+                            stroke="#0B0D14"
+                            strokeWidth="2"
+                            initial={{ scale: 0, opacity: 0 }}
+                            whileInView={{ scale: 1, opacity: 1 }}
+                            transition={{ delay: 0.8 + i * 0.2, duration: 0.3 }}
+                          />
+                        ))}
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Transaction Snippet */}
+                  <div className="col-span-5 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/5 p-3 sm:p-4 flex flex-col">
+                    <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Recent Activity</span>
+                    <div className="flex-1 space-y-2">
+                      {[
+                        { name: "Acme Corp", amount: "+$4,200", status: "paid", color: "text-emerald-400", bg: "bg-emerald-500/10" },
+                        { name: "Cloud Hosting", amount: "-$89.00", status: "pending", color: "text-amber-400", bg: "bg-amber-500/10" },
+                        { name: "Design Studio", amount: "+$1,850", status: "paid", color: "text-emerald-400", bg: "bg-emerald-500/10" },
+                      ].map((tx, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: 10 }}
+                          whileInView={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.6 + i * 0.15, duration: 0.4 }}
+                          className="flex items-center justify-between py-2 px-2.5 rounded-lg hover:bg-white/[0.03] transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-md ${tx.bg} flex items-center justify-center shrink-0`}>
+                              <div className={`w-1.5 h-1.5 rounded-full ${tx.color.replace('text-', 'bg-')}`} />
+                            </div>
+                            <span className="text-[10px] sm:text-xs font-medium text-foreground/80 truncate">{tx.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-[10px] sm:text-xs font-bold tabular-nums ${tx.amount.startsWith('+') ? 'text-emerald-400' : 'text-foreground/60'}`}>{tx.amount}</span>
+                            <span className={`text-[7px] sm:text-[8px] font-bold uppercase px-1.5 py-0.5 rounded ${tx.bg} ${tx.color}`}>{tx.status}</span>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>

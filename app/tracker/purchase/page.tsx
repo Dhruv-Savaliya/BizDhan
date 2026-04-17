@@ -174,7 +174,7 @@ export default function PurchasePage() {
       const res = await fetch("/api/tracker/purchase?limit=100", { method: "GET" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to load purchases");
-      setItems((data.items ?? []) as PurchaseEntry[]);
+      setItems((data.data ?? []) as PurchaseEntry[]);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to load purchases";
       toast.error(message);

@@ -169,11 +169,32 @@ export default function InvestPage() {
   async function refresh() {
     setLoading(true);
     try {
-      const res = await fetch("/api/tracker/invest?limit=100", { method: "GET" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to load invest summary");
-      setSummaries((data.summaries ?? []) as InvestSummary[]);
-      setItems((data.items ?? []) as InvestmentEntry[]);
+      const [invRes, sumRes] = await Promise.all([
+        fetch("/api/tracker/invest?limit=100", { method: "GET" }),
+        fetch("/api/tracker/summary", { method: "GET" })
+      ]);
+      const invData = await invRes.json();
+      const sumData = await sumRes.json();
+      
+      if (!invRes.ok) throw new Error(invData.message || "Failed to load investments");
+      if (!sumRes.ok) throw new Error(sumData.message || "Failed to load financial summary");
+
+      const totals = sumData.stats?.totals || {};
+      const cashflowTotals = totals.cashflowTotals || {};
+      const currencies = Object.keys(cashflowTotals);
+      
+      // Filter out currencies with absolutely no data
+      const parsedSummaries: InvestSummary[] = currencies
+        .filter(c => (totals.incomeTotals?.[c] || 0) > 0 || (totals.expenseTotals?.[c] || 0) > 0 || (totals.investmentTotals?.[c] || 0) > 0)
+        .map((c) => ({
+          currency: c,
+          totalIncome: totals.incomeTotals?.[c] || 0,
+          totalExpense: totals.expenseTotals?.[c] || 0,
+          availableToInvest: cashflowTotals[c] || 0,
+        }));
+
+      setSummaries(parsedSummaries);
+      setItems((invData.data ?? []) as InvestmentEntry[]);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to load invest summary";
       toast.error(message);

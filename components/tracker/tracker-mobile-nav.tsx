@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   Menu,
   X,
+  UserCircle,
   LucideIcon
 } from "lucide-react";
 
@@ -32,6 +33,7 @@ type TrackerMobileNavProps = {
 
 const getIconForLabel = (label: string): LucideIcon => {
   const normalized = label.toLowerCase();
+  if (normalized.includes("dashboard")) return LayoutDashboard;
   if (normalized.includes("income")) return TrendingUp;
   if (normalized.includes("expense")) return TrendingDown;
   if (normalized.includes("invest")) return PiggyBank;
@@ -194,6 +196,21 @@ export function TrackerMobileNav({
 
               {/* Bottom Section */}
               <div className="pt-8 mt-auto flex flex-col gap-4">
+                {/* Profile Link */}
+                <Link
+                  href="/tracker/profile"
+                  onClick={() => setOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
+                    pathname === "/tracker/profile"
+                      ? "bg-primary/10 text-primary"
+                      : "text-foreground/70 hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <UserCircle className={`h-4 w-4 ${
+                    pathname === "/tracker/profile" ? "text-primary" : "text-muted-foreground"
+                  }`} />
+                  <span className="text-[15px] font-medium">Profile</span>
+                </Link>
                 <div className="flex items-center justify-between rounded-xl border border-border/50 bg-muted/30 p-3">
                   <span className="text-sm font-medium text-muted-foreground px-2">Theme</span>
                   <ThemeToggle />
