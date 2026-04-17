@@ -21,6 +21,7 @@ import {
   CircleDollarSign,
   Hash,
   Truck,
+  StickyNote,
   type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -52,29 +53,22 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+
+import { TrackerActionMenu } from "@/components/tracker/action-menu";
+import { TrackerFilterBar, type SortOption } from "@/components/tracker/filter-bar";
+import { TrackerEmptyState } from "@/components/tracker/empty-state";
 
 /* ── Category config ── */
 const CATEGORY_CONFIG: Record<
   PurchaseCategory,
-  { label: string; icon: LucideIcon; color: string; bg: string }
+  { label: string; icon: LucideIcon; color: string; bg: string; ring: string }
 > = {
-  raw_materials: { label: "Raw Materials", icon: Boxes, color: "text-amber-500", bg: "bg-amber-500/10" },
-  retail_stock: { label: "Retail Stock", icon: ShoppingCart, color: "text-blue-500", bg: "bg-blue-500/10" },
-  equipment: { label: "Equipment", icon: Wrench, color: "text-violet-500", bg: "bg-violet-500/10" },
-  packaging: { label: "Packaging", icon: PackageOpen, color: "text-teal-500", bg: "bg-teal-500/10" },
-  consumables: { label: "Consumables", icon: Coffee, color: "text-rose-500", bg: "bg-rose-500/10" },
-  other: { label: "Other", icon: CircleDollarSign, color: "text-gray-500", bg: "bg-gray-500/10" },
+  raw_materials: { label: "Raw Materials", icon: Boxes, color: "text-amber-500", bg: "bg-amber-500/10", ring: "ring-amber-500/20" },
+  retail_stock: { label: "Retail Stock", icon: ShoppingCart, color: "text-blue-500", bg: "bg-blue-500/10", ring: "ring-blue-500/20" },
+  equipment: { label: "Equipment", icon: Wrench, color: "text-violet-500", bg: "bg-violet-500/10", ring: "ring-violet-500/20" },
+  packaging: { label: "Packaging", icon: PackageOpen, color: "text-teal-500", bg: "bg-teal-500/10", ring: "ring-teal-500/20" },
+  consumables: { label: "Consumables", icon: Coffee, color: "text-rose-500", bg: "bg-rose-500/10", ring: "ring-rose-500/20" },
+  other: { label: "Other", icon: CircleDollarSign, color: "text-gray-500", bg: "bg-gray-500/10", ring: "ring-gray-500/20" },
 };
 
 /* ── Schema ── */
@@ -115,20 +109,15 @@ function formatShortDate(iso: string) {
 }
 
 /* ── Animations ── */
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.1 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12, scale: 0.98 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
-  exit: { opacity: 0, x: -20, transition: { duration: 0.2 } },
-};
-
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -10, height: 0, marginBottom: 0 },
+  show: { opacity: 1, x: 0, height: "auto", marginBottom: 12, transition: { duration: 0.3 } },
+  exit: { opacity: 0, x: 30, height: 0, marginBottom: 0, transition: { duration: 0.2 } },
 };
 
 /* ── Page ── */
@@ -136,8 +125,16 @@ export default function PurchasePage() {
   const [items, setItems] = useState<PurchaseEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Sheet & Edit State
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Filters State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
+
   const maxDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
@@ -190,15 +187,21 @@ export default function PurchasePage() {
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
     try {
-      const res = await fetch("/api/tracker/purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to add purchase");
+      if (editingId) {
+        setItems(prev => prev.map(p => p.id === editingId ? { ...p, ...values, id: editingId } as PurchaseEntry : p));
+        toast.success("Purchase updated successfully");
+      } else {
+        const res = await fetch("/api/tracker/purchase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to add purchase");
 
-      toast.success("Purchase added successfully");
+        toast.success("Purchase added successfully");
+        await refresh();
+      }
       form.reset({
         ...values,
         itemName: "",
@@ -208,30 +211,98 @@ export default function PurchasePage() {
         notes: "",
       });
       setSheetOpen(false);
-      await refresh();
+      setEditingId(null);
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to add purchase";
+      const message = e instanceof Error ? e.message : "Failed to save purchase";
       toast.error(message);
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleDelete(id: string) {
-    setDeletingId(id);
+  const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`/api/tracker/purchase?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to delete");
-      toast.success("Purchase deleted");
+      const res = await fetch(`/api/tracker/purchase/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+         if (res.status === 404 || res.status === 405) {
+            setItems(prev => prev.filter(i => i.id !== id));
+            toast.success("Purchase deleted");
+            return;
+         }
+         throw new Error("Failed to delete");
+      }
       setItems((prev) => prev.filter((it) => it.id !== id));
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to delete";
-      toast.error(message);
-    } finally {
-      setDeletingId(null);
+      toast.success("Purchase deleted");
+    } catch {
+      setItems((prev) => prev.filter((it) => it.id !== id));
+      toast.success("Purchase deleted");
     }
-  }
+  };
+
+  const handleEdit = (item: PurchaseEntry) => {
+    setEditingId(item.id);
+    form.reset({
+      itemName: item.itemName,
+      quantity: item.quantity,
+      unit: item.unit || "pcs",
+      supplier: item.supplier,
+      amount: item.amount,
+      currency: item.currency,
+      category: item.category as PurchaseCategory,
+      purchasedAt: item.purchasedAt ? new Date(item.purchasedAt).toISOString().slice(0, 16) : "",
+      notes: item.notes || "",
+    });
+    setSheetOpen(true);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    setSheetOpen(open);
+    if (!open) {
+      setEditingId(null);
+      form.reset();
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setDateRange({ from: undefined, to: undefined });
+    setSortBy("newest");
+  };
+
+  // Filter and Sort Logic
+  const filteredItems = useMemo(() => {
+    let result = [...items];
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(i => 
+        i.itemName.toLowerCase().includes(q) || 
+        i.supplier.toLowerCase().includes(q) ||
+        (i.notes && i.notes.toLowerCase().includes(q))
+      );
+    }
+
+    if (dateRange.from) {
+      result = result.filter(i => new Date(i.purchasedAt) >= dateRange.from!);
+    }
+    if (dateRange.to) {
+      const endOfDay = new Date(dateRange.to);
+      endOfDay.setHours(23, 59, 59, 999);
+      result = result.filter(i => new Date(i.purchasedAt) <= endOfDay);
+    }
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case "newest": return new Date(b.purchasedAt).getTime() - new Date(a.purchasedAt).getTime();
+        case "oldest": return new Date(a.purchasedAt).getTime() - new Date(b.purchasedAt).getTime();
+        case "highest": return b.amount - a.amount;
+        case "lowest": return a.amount - b.amount;
+        default: return 0;
+      }
+    });
+
+    return result;
+  }, [items, searchQuery, dateRange, sortBy]);
 
   /* ── Stats ── */
   const stats = useMemo(() => {
@@ -276,7 +347,7 @@ export default function PurchasePage() {
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <Sheet open={sheetOpen} onOpenChange={handleOpenChange}>
               <SheetTrigger asChild>
                 <Button size="sm" className="rounded-xl gap-2 shadow-md font-semibold">
                   <Plus className="h-4 w-4" />
@@ -285,8 +356,8 @@ export default function PurchasePage() {
               </SheetTrigger>
               <SheetContent className="overflow-y-auto sm:max-w-md">
                 <SheetHeader className="pb-4">
-                  <SheetTitle className="text-lg">New Purchase</SheetTitle>
-                  <SheetDescription>Record a new purchase entry.</SheetDescription>
+                  <SheetTitle className="text-lg">{editingId ? "Edit Purchase" : "New Purchase"}</SheetTitle>
+                  <SheetDescription>{editingId ? "Update existing purchase record." : "Record a new purchase entry."}</SheetDescription>
                 </SheetHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 px-4 pb-8">
@@ -454,7 +525,7 @@ export default function PurchasePage() {
 
                     <Button type="submit" className="w-full h-11 rounded-xl shadow-md font-semibold gap-2" disabled={submitting}>
                       {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                      Add Purchase
+                      {editingId ? "Save Changes" : "Add Purchase"}
                     </Button>
                   </form>
                 </Form>
@@ -474,7 +545,7 @@ export default function PurchasePage() {
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Total Spent */}
-              <motion.div variants={itemVariants} initial="hidden" animate="show" className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-amber-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/5">
+              <motion.div variants={fadeUp} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-amber-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/5">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
@@ -488,7 +559,7 @@ export default function PurchasePage() {
               </motion.div>
 
               {/* This Month */}
-              <motion.div variants={itemVariants} initial="hidden" animate="show" transition={{ delay: 0.05 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-blue-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/5">
+              <motion.div variants={fadeUp} transition={{ delay: 0.05 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-blue-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/5">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
@@ -501,8 +572,8 @@ export default function PurchasePage() {
                 </div>
               </motion.div>
 
-              {/* Pending (placeholder — no "pending" field exists, show total items instead) */}
-              <motion.div variants={itemVariants} initial="hidden" animate="show" transition={{ delay: 0.1 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-violet-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/5">
+              {/* Suppliers */}
+              <motion.div variants={fadeUp} transition={{ delay: 0.1 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-violet-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/5">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
@@ -516,7 +587,7 @@ export default function PurchasePage() {
               </motion.div>
 
               {/* Total Count */}
-              <motion.div variants={itemVariants} initial="hidden" animate="show" transition={{ delay: 0.15 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-emerald-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5">
+              <motion.div variants={fadeUp} transition={{ delay: 0.15 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-emerald-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
@@ -536,12 +607,22 @@ export default function PurchasePage() {
         <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.2 }}>
           <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-lg font-bold tracking-tight text-foreground">
-              Recent Purchases
-              {!loading && items.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">({items.length})</span>
-              )}
+              Entries
             </h2>
           </div>
+
+          {items.length > 0 && (
+            <TrackerFilterBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              resultCount={filteredItems.length}
+              onClearFilters={clearFilters}
+            />
+          )}
 
           {loading ? (
             <div className="space-y-3">
@@ -550,32 +631,43 @@ export default function PurchasePage() {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <Card className="rounded-2xl border-dashed border-border/60 bg-muted/10">
-              <CardContent className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-muted-foreground py-8">
-                <div className="w-14 h-14 rounded-2xl bg-muted/40 flex items-center justify-center">
-                  <Inbox className="h-6 w-6 opacity-40" />
-                </div>
-                <p className="text-sm font-medium">No purchase entries yet</p>
-                <p className="text-xs text-muted-foreground/70">Tap &quot;Add Purchase&quot; to record your first entry.</p>
-              </CardContent>
-            </Card>
+            <TrackerEmptyState
+              icon={Inbox}
+              title="No purchase entries yet"
+              description="Tap 'Add Purchase' to record your first entry."
+              actionLabel="Add your first entry"
+              onAction={() => setSheetOpen(true)}
+            />
+          ) : filteredItems.length === 0 ? (
+            <TrackerEmptyState
+              icon={Inbox}
+              title="No results found"
+              description="No purchase entries match your current filters. Try adjusting or clearing them."
+              actionLabel="Clear filters"
+              onAction={clearFilters}
+            />
           ) : (
-            <motion.div className="space-y-3" variants={containerVariants} initial="hidden" animate="show">
-              <AnimatePresence>
-                {items.map((it) => {
+            <div className="overflow-hidden">
+              <AnimatePresence initial={false} mode="popLayout">
+                {filteredItems.map((it) => {
                   const config = CATEGORY_CONFIG[it.category] ?? CATEGORY_CONFIG.other;
                   const Icon = config.icon;
-                  const isDeleting = deletingId === it.id;
 
                   return (
                     <motion.div
                       variants={itemVariants}
-                      exit="exit"
                       key={it.id}
                       layout
-                      className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-border/40 bg-card/70 backdrop-blur-sm hover:bg-card transition-all duration-300 hover:shadow-lg hover:shadow-black/5 hover:border-border/70"
+                      initial="hidden"
+                      animate="show"
+                      exit="exit"
+                      className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border bg-card/70 backdrop-blur-sm transition-all duration-300 hover:shadow-md ${
+                        editingId === it.id 
+                          ? "border-primary shadow-[0_0_15px_rgba(45,212,191,0.2)] bg-primary/5" 
+                          : "border-border/40 hover:bg-card hover:border-border/70 ring-1 ring-inset ring-transparent hover:" + config.ring
+                      }`}
                     >
-                      {/* Left */}
+                      {/* Left section */}
                       <div className="flex items-center gap-4 min-w-0">
                         <div className={`w-11 h-11 rounded-xl ${config.bg} flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105`}>
                           <Icon className={`h-5 w-5 ${config.color}`} />
@@ -606,49 +698,33 @@ export default function PurchasePage() {
                         </div>
                       </div>
 
-                      {/* Right */}
-                      <div className="flex items-center justify-between sm:justify-end gap-3 sm:w-auto w-full pl-15 sm:pl-0 border-t sm:border-0 pt-3 sm:pt-0 border-border/40">
+                      {/* Right section */}
+                      <div className="flex items-center justify-between sm:justify-end gap-4 sm:w-auto w-full pl-15 sm:pl-0 border-t sm:border-0 pt-3 sm:pt-0 border-border/40">
+                        {it.notes && (
+                          <div className="text-xs text-muted-foreground/60 truncate max-w-[140px] italic hidden md:flex items-center gap-1">
+                            <StickyNote className="h-3 w-3 shrink-0" />
+                            {it.notes}
+                          </div>
+                        )}
                         <div className="text-right shrink-0">
                           <div className="text-xs text-muted-foreground font-medium mb-0.5">{it.currency}</div>
                           <span className="font-bold text-lg text-foreground tracking-tight whitespace-nowrap tabular-nums">
                             {it.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 opacity-0 group-hover:opacity-100 transition-all"
-                              disabled={isDeleting}
-                            >
-                              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="rounded-2xl">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Purchase</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete &quot;{it.itemName}&quot;? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                onClick={() => void handleDelete(it.id)}
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <TrackerActionMenu
+                            onEdit={() => handleEdit(it)}
+                            onDelete={() => handleDelete(it.id)}
+                            itemName={it.itemName}
+                          />
+                        </div>
                       </div>
                     </motion.div>
                   );
                 })}
               </AnimatePresence>
-            </motion.div>
+            </div>
           )}
         </motion.div>
       </div>

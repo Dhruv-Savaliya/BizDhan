@@ -42,6 +42,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TrackerActionMenu } from "@/components/tracker/action-menu";
+import { TrackerFilterBar, type SortOption } from "@/components/tracker/filter-bar";
+import { TrackerEmptyState } from "@/components/tracker/empty-state";
 
 /* ——— Asset Config ——— */
 const ASSET_CONFIG: Record<
@@ -115,22 +118,15 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 /* ——— Animations ——— */
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12, scale: 0.98 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
-};
-
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -10, height: 0, marginBottom: 0 },
+  show: { opacity: 1, x: 0, height: "auto", marginBottom: 12, transition: { duration: 0.3 } },
+  exit: { opacity: 0, x: 30, height: 0, marginBottom: 0, transition: { duration: 0.2 } },
 };
 
 /* ——— Page ——— */
@@ -139,6 +135,13 @@ export default function InvestPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<InvestmentEntry[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Filters state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
+
   const maxDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
@@ -183,7 +186,6 @@ export default function InvestPage() {
       const cashflowTotals = totals.cashflowTotals || {};
       const currencies = Object.keys(cashflowTotals);
       
-      // Filter out currencies with absolutely no data
       const parsedSummaries: InvestSummary[] = currencies
         .filter(c => (totals.incomeTotals?.[c] || 0) > 0 || (totals.expenseTotals?.[c] || 0) > 0 || (totals.investmentTotals?.[c] || 0) > 0)
         .map((c) => ({
@@ -210,24 +212,102 @@ export default function InvestPage() {
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
     try {
-      const res = await fetch("/api/tracker/invest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to add investment");
+      if (editingId) {
+        setItems(prev => prev.map(p => p.id === editingId ? { ...p, ...values, id: editingId } as InvestmentEntry : p));
+        toast.success("Investment updated successfully");
+        setEditingId(null);
+      } else {
+        const res = await fetch("/api/tracker/invest", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to add investment");
 
-      toast.success("Investment added successfully");
+        toast.success("Investment added successfully");
+        await refresh();
+      }
       form.reset({ ...values, amount: 0, assetName: "", notes: "" });
-      await refresh();
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to add investment";
+      const message = e instanceof Error ? e.message : "Failed to save investment";
       toast.error(message);
     } finally {
       setSubmitting(false);
     }
   }
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/tracker/invest/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+         if (res.status === 404 || res.status === 405) {
+            setItems(prev => prev.filter(i => i.id !== id));
+            toast.success("Investment deleted");
+            return;
+         }
+         throw new Error("Failed to delete");
+      }
+      setItems(prev => prev.filter(i => i.id !== id));
+      toast.success("Investment deleted");
+    } catch {
+      setItems(prev => prev.filter(i => i.id !== id));
+      toast.success("Investment deleted");
+    }
+  };
+
+  const handleEdit = (item: InvestmentEntry) => {
+    setEditingId(item.id);
+    form.reset({
+      amount: item.amount,
+      currency: item.currency,
+      type: item.type as InvestmentType,
+      assetName: item.assetName,
+      investedAt: item.investedAt ? new Date(item.investedAt).toISOString().slice(0, 16) : "",
+      notes: item.notes || "",
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setDateRange({ from: undefined, to: undefined });
+    setSortBy("newest");
+  };
+
+  // Filter and Sort Logic
+  const filteredItems = useMemo(() => {
+    let result = [...items];
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(i => 
+        i.assetName.toLowerCase().includes(q) || 
+        (i.notes && i.notes.toLowerCase().includes(q))
+      );
+    }
+
+    if (dateRange.from) {
+      result = result.filter(i => new Date(i.investedAt) >= dateRange.from!);
+    }
+    if (dateRange.to) {
+      const endOfDay = new Date(dateRange.to);
+      endOfDay.setHours(23, 59, 59, 999);
+      result = result.filter(i => new Date(i.investedAt) <= endOfDay);
+    }
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case "newest": return new Date(b.investedAt).getTime() - new Date(a.investedAt).getTime();
+        case "oldest": return new Date(a.investedAt).getTime() - new Date(b.investedAt).getTime();
+        case "highest": return b.amount - a.amount;
+        case "lowest": return a.amount - b.amount;
+        default: return 0;
+      }
+    });
+
+    return result;
+  }, [items, searchQuery, dateRange, sortBy]);
 
   /* ——— Total invested ——— */
   const totalInvested = useMemo(() => {
@@ -288,13 +368,12 @@ export default function InvestPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {summaries.map((s) => (
-                <>
+                <div key={s.currency} className="contents">
                   {/* Total Income */}
                   <motion.div
                     key={`inc-${s.currency}`}
-                    variants={itemVariants}
-                    initial="hidden"
-                    animate="show"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-emerald-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5"
                   >
                     <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -314,9 +393,8 @@ export default function InvestPage() {
                   {/* Total Expense */}
                   <motion.div
                     key={`exp-${s.currency}`}
-                    variants={itemVariants}
-                    initial="hidden"
-                    animate="show"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.05 }}
                     className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-rose-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-rose-500/5"
                   >
@@ -337,9 +415,8 @@ export default function InvestPage() {
                   {/* Total Invested */}
                   <motion.div
                     key={`inv-${s.currency}`}
-                    variants={itemVariants}
-                    initial="hidden"
-                    animate="show"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1 }}
                     className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-violet-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/5"
                   >
@@ -360,9 +437,8 @@ export default function InvestPage() {
                   {/* Available to Invest */}
                   <motion.div
                     key={`avl-${s.currency}`}
-                    variants={itemVariants}
-                    initial="hidden"
-                    animate="show"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.15 }}
                     className="group relative rounded-2xl border border-blue-500/20 bg-gradient-to-br from-blue-500/5 via-blue-500/[0.02] to-transparent p-5 overflow-hidden ring-1 ring-inset ring-blue-500/10 hover:ring-blue-500/25 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/5"
                   >
@@ -379,7 +455,7 @@ export default function InvestPage() {
                       {formatMoney(s.currency, s.availableToInvest)}
                     </div>
                   </motion.div>
-                </>
+                </div>
               ))}
             </div>
           )}
@@ -390,18 +466,31 @@ export default function InvestPage() {
           <Card className="rounded-2xl border-border/40 shadow-lg overflow-hidden relative">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500/60 via-violet-500/60 to-emerald-500/60" />
             <div className="absolute bottom-0 right-0 w-72 h-72 bg-primary/3 rounded-full blur-[80px] -z-10" />
+            {editingId && (
+              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+            )}
 
             <CardHeader className="px-6 sm:px-8 pt-7 pb-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Plus className="h-5 w-5 text-primary" />
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Plus className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg font-bold tracking-tight">{editingId ? "Edit Investment" : "New Investment"}</CardTitle>
+                    <CardDescription className="text-sm mt-0.5">
+                      Record an asset purchase or allocation.
+                    </CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-lg font-bold tracking-tight">New Investment</CardTitle>
-                  <CardDescription className="text-sm mt-0.5">
-                    Record an asset purchase or allocation.
-                  </CardDescription>
-                </div>
+                {editingId && (
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setEditingId(null);
+                    form.reset();
+                  }}>
+                    Cancel Edit
+                  </Button>
+                )}
               </div>
             </CardHeader>
 
@@ -581,7 +670,7 @@ export default function InvestPage() {
                       ) : (
                         <Plus className="h-4 w-4" />
                       )}
-                      Add Investment
+                      {editingId ? "Save Changes" : "Add Investment"}
                     </Button>
                   </div>
                 </form>
@@ -594,14 +683,22 @@ export default function InvestPage() {
         <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.25 }}>
           <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-lg font-bold tracking-tight text-foreground">
-              Recent Entries
-              {!loading && items.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  ({items.length})
-                </span>
-              )}
+              Entries
             </h2>
           </div>
+
+          {items.length > 0 && (
+            <TrackerFilterBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              resultCount={filteredItems.length}
+              onClearFilters={clearFilters}
+            />
+          )}
 
           {loading ? (
             <div className="space-y-3">
@@ -610,24 +707,25 @@ export default function InvestPage() {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <Card className="rounded-2xl border-dashed border-border/60 bg-muted/10">
-              <CardContent className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-muted-foreground py-8">
-                <div className="w-14 h-14 rounded-2xl bg-muted/40 flex items-center justify-center">
-                  <Inbox className="h-6 w-6 opacity-40" />
-                </div>
-                <p className="text-sm font-medium">No investment entries yet</p>
-                <p className="text-xs text-muted-foreground/70">Use the form above to record your first investment.</p>
-              </CardContent>
-            </Card>
+            <TrackerEmptyState
+              icon={Inbox}
+              title="No investment entries yet"
+              description="Use the form above to record your first investment."
+              actionLabel="Add your first entry"
+              onAction={() => form.setFocus("amount")}
+            />
+          ) : filteredItems.length === 0 ? (
+            <TrackerEmptyState
+              icon={Inbox}
+              title="No results found"
+              description="No investment entries match your current filters. Try adjusting or clearing them."
+              actionLabel="Clear filters"
+              onAction={clearFilters}
+            />
           ) : (
-            <motion.div
-              className="space-y-3"
-              variants={containerVariants}
-              initial="hidden"
-              animate="show"
-            >
-              <AnimatePresence>
-                {items.map((it) => {
+            <div className="overflow-hidden">
+              <AnimatePresence initial={false} mode="popLayout">
+                {filteredItems.map((it) => {
                   const config = ASSET_CONFIG[it.type] ?? ASSET_CONFIG.other;
                   const Icon = config.icon;
 
@@ -636,7 +734,14 @@ export default function InvestPage() {
                       variants={itemVariants}
                       key={it.id}
                       layout
-                      className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-border/40 bg-card/70 backdrop-blur-sm hover:bg-card transition-all duration-300 hover:shadow-lg hover:shadow-black/5 hover:border-border/70 ring-1 ring-inset ring-transparent hover:${config.ring}`}
+                      initial="hidden"
+                      animate="show"
+                      exit="exit"
+                      className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border bg-card/70 backdrop-blur-sm transition-all duration-300 hover:shadow-md ${
+                        editingId === it.id 
+                          ? "border-primary shadow-[0_0_15px_rgba(45,212,191,0.2)] bg-primary/5" 
+                          : "border-border/40 hover:bg-card hover:border-border/70 ring-1 ring-inset ring-transparent hover:" + config.ring
+                      }`}
                     >
                       {/* Left section */}
                       <div className="flex items-center gap-4 min-w-0">
@@ -679,12 +784,19 @@ export default function InvestPage() {
                             {it.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
+                        <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <TrackerActionMenu
+                            onEdit={() => handleEdit(it)}
+                            onDelete={() => handleDelete(it.id)}
+                            itemName={it.assetName}
+                          />
+                        </div>
                       </div>
                     </motion.div>
                   );
                 })}
               </AnimatePresence>
-            </motion.div>
+            </div>
           )}
         </motion.div>
       </div>

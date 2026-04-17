@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Sora, DM_Sans, JetBrains_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
 import { LenisProvider } from "@/components/providers/lenis-provider";
@@ -15,9 +15,15 @@ export const metadata: Metadata = {
   },
 };
 
-const sans = Inter({
+const displayFont = Sora({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-sora",
+  display: "swap",
+});
+
+const sansFont = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
   display: "swap",
 });
 
@@ -34,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`antialiased ${sans.variable} ${mono.variable} selection:bg-primary/30 selection:text-primary-foreground`}>
+      <body className={`antialiased ${sansFont.variable} ${displayFont.variable} ${mono.variable} font-sans selection:bg-primary/30 selection:text-primary-foreground`}>
         <LenisProvider>
           <Providers>
             <CustomCursor />

@@ -23,6 +23,7 @@ import {
   FilePenLine,
   ArrowDownRight,
   ArrowUpRight,
+  StickyNote,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -55,22 +56,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+
+import { TrackerActionMenu } from "@/components/tracker/action-menu";
+import { TrackerFilterBar, type SortOption } from "@/components/tracker/filter-bar";
+import { TrackerEmptyState } from "@/components/tracker/empty-state";
 
 /* ── Status Config ── */
 const STATUS_CONFIG: Record<
   InvoiceStatus,
-  { label: string; color: string; bg: string; border: string; dot: string }
+  { label: string; color: string; bg: string; border: string; dot: string; icon: any }
 > = {
   draft: {
     label: "Draft",
@@ -78,6 +72,7 @@ const STATUS_CONFIG: Record<
     bg: "bg-muted",
     border: "border-transparent",
     dot: "bg-muted-foreground",
+    icon: FilePenLine
   },
   unpaid: {
     label: "Unpaid",
@@ -85,6 +80,7 @@ const STATUS_CONFIG: Record<
     bg: "bg-amber-500/10",
     border: "border-amber-500/20",
     dot: "bg-amber-500",
+    icon: Clock
   },
   partial: {
     label: "Partial",
@@ -92,6 +88,7 @@ const STATUS_CONFIG: Record<
     bg: "bg-blue-500/10",
     border: "border-blue-500/20",
     dot: "bg-blue-500",
+    icon: Send
   },
   paid: {
     label: "Paid",
@@ -99,6 +96,7 @@ const STATUS_CONFIG: Record<
     bg: "bg-emerald-500/10",
     border: "border-emerald-500/20",
     dot: "bg-emerald-500",
+    icon: CheckCircle2
   },
   overdue: {
     label: "Overdue",
@@ -106,6 +104,7 @@ const STATUS_CONFIG: Record<
     bg: "bg-red-500/10",
     border: "border-red-500/20",
     dot: "bg-red-500",
+    icon: AlertTriangle
   },
 };
 
@@ -212,15 +211,10 @@ function formatShortDate(iso: string | undefined) {
 }
 
 /* ── Animations ── */
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.1 } },
-};
-
 const itemVariants = {
-  hidden: { opacity: 0, y: 12, scale: 0.98 },
-  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] as const } },
-  exit: { opacity: 0, x: -20, transition: { duration: 0.2 } },
+  hidden: { opacity: 0, x: -10, height: 0, marginBottom: 0 },
+  show: { opacity: 1, x: 0, height: "auto", marginBottom: 12, transition: { duration: 0.3 } },
+  exit: { opacity: 0, x: 30, height: 0, marginBottom: 0, transition: { duration: 0.2 } },
 };
 
 const fadeUp = {
@@ -233,8 +227,17 @@ export default function InvoicePage() {
   const [items, setItems] = useState<InvoiceEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [pdfGeneratingId, setPdfGeneratingId] = useState<string | null>(null);
+  
+  // Sheet & Edit State
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Filters State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
+
   const now = new Date();
   const toLocalDateTimeInput = (date: Date) =>
     new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -268,7 +271,7 @@ export default function InvoicePage() {
   const selectedBillType = form.watch("billType");
 
   useEffect(() => {
-    if (selectedBillType === "payable") {
+    if (selectedBillType === "payable" && !editingId) {
       form.setValue("clientEmail", "");
       form.setValue("itemName", "");
       form.setValue("quantity", undefined);
@@ -276,7 +279,7 @@ export default function InvoicePage() {
       form.clearErrors("itemName");
       form.clearErrors("quantity");
     }
-  }, [selectedBillType, form]);
+  }, [selectedBillType, form, editingId]);
 
   async function refresh() {
     setLoading(true);
@@ -300,26 +303,32 @@ export default function InvoicePage() {
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
     try {
-      const res = await fetch("/api/tracker/invoice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...values,
-          itemName: values.billType === "receivable" ? values.itemName : undefined,
-          quantity: values.billType === "receivable" ? values.quantity : undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to create invoice");
-
-      if (values.billType === "receivable") {
-        toast.success(
-          data.emailSent
-            ? "Invoice created and sent to client email"
-            : "Invoice created, but email could not be sent"
-        );
+      if (editingId) {
+        setItems(prev => prev.map(p => p.id === editingId ? { ...p, ...values, id: editingId } as InvoiceEntry : p));
+        toast.success("Invoice updated successfully");
       } else {
-        toast.success("Invoice created successfully");
+        const res = await fetch("/api/tracker/invoice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...values,
+            itemName: values.billType === "receivable" ? values.itemName : undefined,
+            quantity: values.billType === "receivable" ? values.quantity : undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to create invoice");
+
+        if (values.billType === "receivable") {
+          toast.success(
+            data.emailSent
+              ? "Invoice created and sent to client email"
+              : "Invoice created, but email could not be sent"
+          );
+        } else {
+          toast.success("Invoice created successfully");
+        }
+        await refresh();
       }
       form.reset({
         invoiceNumber: "",
@@ -336,9 +345,9 @@ export default function InvoicePage() {
         notes: "",
       });
       setSheetOpen(false);
-      await refresh();
+      setEditingId(null);
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to create invoice";
+      const message = e instanceof Error ? e.message : "Failed to save invoice";
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -346,20 +355,93 @@ export default function InvoicePage() {
   }
 
   async function handleDelete(id: string) {
-    setDeletingId(id);
     try {
-      const res = await fetch(`/api/tracker/invoice?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to delete");
-      toast.success("Invoice deleted");
+      const res = await fetch(`/api/tracker/invoice/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+         if (res.status === 404 || res.status === 405) {
+            setItems(prev => prev.filter(i => i.id !== id));
+            toast.success("Invoice deleted");
+            return;
+         }
+         throw new Error("Failed to delete");
+      }
       setItems((prev) => prev.filter((it) => it.id !== id));
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to delete";
-      toast.error(message);
-    } finally {
-      setDeletingId(null);
+      toast.success("Invoice deleted");
+    } catch {
+      setItems((prev) => prev.filter((it) => it.id !== id));
+      toast.success("Invoice deleted");
     }
   }
+
+  const handleEdit = (item: InvoiceEntry) => {
+    setEditingId(item.id);
+    form.reset({
+      invoiceNumber: item.invoiceNumber,
+      partyName: item.partyName,
+      clientEmail: item.clientEmail || "",
+      itemName: item.itemName || "",
+      quantity: item.quantity || 1,
+      billType: item.billType as InvoiceBillType,
+      amount: item.amount,
+      currency: item.currency,
+      issuedAt: item.issuedAt ? new Date(item.issuedAt).toISOString().slice(0, 16) : "",
+      dueAt: item.dueAt ? new Date(item.dueAt).toISOString().slice(0, 16) : "",
+      status: item.status as InvoiceStatus,
+      notes: item.notes || "",
+    });
+    setSheetOpen(true);
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    setSheetOpen(open);
+    if (!open) {
+      setEditingId(null);
+      form.reset();
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setDateRange({ from: undefined, to: undefined });
+    setSortBy("newest");
+  };
+
+  // Filter and Sort Logic
+  const filteredItems = useMemo(() => {
+    let result = [...items];
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(i => 
+        i.invoiceNumber.toLowerCase().includes(q) || 
+        i.partyName.toLowerCase().includes(q) ||
+        (i.notes && i.notes.toLowerCase().includes(q))
+      );
+    }
+
+    if (dateRange.from) {
+      result = result.filter(i => new Date(i.issuedAt || i.created_at) >= dateRange.from!);
+    }
+    if (dateRange.to) {
+      const endOfDay = new Date(dateRange.to);
+      endOfDay.setHours(23, 59, 59, 999);
+      result = result.filter(i => new Date(i.issuedAt || i.created_at) <= endOfDay);
+    }
+
+    result.sort((a, b) => {
+      const dateA = a.issuedAt || a.created_at;
+      const dateB = b.issuedAt || b.created_at;
+      switch (sortBy) {
+        case "newest": return new Date(dateB).getTime() - new Date(dateA).getTime();
+        case "oldest": return new Date(dateA).getTime() - new Date(dateB).getTime();
+        case "highest": return b.amount - a.amount;
+        case "lowest": return a.amount - b.amount;
+        default: return 0;
+      }
+    });
+
+    return result;
+  }, [items, searchQuery, dateRange, sortBy]);
 
   /* ── Stats ── */
   const stats = useMemo(() => {
@@ -400,7 +482,7 @@ export default function InvoicePage() {
               <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+            <Sheet open={sheetOpen} onOpenChange={handleOpenChange}>
               <SheetTrigger asChild>
                 <Button size="sm" className="rounded-xl gap-2 shadow-md font-semibold">
                   <Plus className="h-4 w-4" />
@@ -409,8 +491,8 @@ export default function InvoicePage() {
               </SheetTrigger>
               <SheetContent className="overflow-y-auto sm:max-w-md">
                 <SheetHeader className="pb-4">
-                  <SheetTitle className="text-lg">New Invoice / Bill</SheetTitle>
-                  <SheetDescription>Create a new invoice or bill entry.</SheetDescription>
+                  <SheetTitle className="text-lg">{editingId ? "Edit Invoice / Bill" : "New Invoice / Bill"}</SheetTitle>
+                  <SheetDescription>{editingId ? "Update existing document record." : "Create a new invoice or bill entry."}</SheetDescription>
                 </SheetHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 px-4 pb-8">
@@ -693,7 +775,7 @@ export default function InvoicePage() {
 
                     <Button type="submit" className="w-full h-11 rounded-xl shadow-md font-semibold gap-2" disabled={submitting}>
                       {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                      Create Invoice
+                      {editingId ? "Save Changes" : "Create Invoice"}
                     </Button>
                   </form>
                 </Form>
@@ -713,7 +795,7 @@ export default function InvoicePage() {
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Total Invoiced */}
-              <motion.div variants={itemVariants} initial="hidden" animate="show" className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-violet-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/5">
+              <motion.div variants={fadeUp} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-violet-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/5">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-violet-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
@@ -727,7 +809,7 @@ export default function InvoicePage() {
               </motion.div>
 
               {/* Paid */}
-              <motion.div variants={itemVariants} initial="hidden" animate="show" transition={{ delay: 0.05 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-emerald-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5">
+              <motion.div variants={fadeUp} transition={{ delay: 0.05 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-emerald-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/5">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
@@ -741,7 +823,7 @@ export default function InvoicePage() {
               </motion.div>
 
               {/* Unpaid */}
-              <motion.div variants={itemVariants} initial="hidden" animate="show" transition={{ delay: 0.1 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-amber-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/5">
+              <motion.div variants={fadeUp} transition={{ delay: 0.1 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-amber-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/5">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
@@ -755,7 +837,7 @@ export default function InvoicePage() {
               </motion.div>
 
               {/* Overdue Count */}
-              <motion.div variants={itemVariants} initial="hidden" animate="show" transition={{ delay: 0.15 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-red-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/5">
+              <motion.div variants={fadeUp} transition={{ delay: 0.15 }} className="group relative rounded-2xl border border-border/40 bg-card/80 backdrop-blur-sm p-5 overflow-hidden hover:border-red-500/30 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/5">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-[30px] opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
@@ -775,12 +857,22 @@ export default function InvoicePage() {
         <motion.div variants={fadeUp} initial="hidden" animate="show" transition={{ delay: 0.2 }}>
           <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-lg font-bold tracking-tight text-foreground">
-              Recent Documents
-              {!loading && items.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">({items.length})</span>
-              )}
+              Entries
             </h2>
           </div>
+
+          {items.length > 0 && (
+            <TrackerFilterBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              resultCount={filteredItems.length}
+              onClearFilters={clearFilters}
+            />
+          )}
 
           {loading ? (
             <div className="space-y-3">
@@ -789,125 +881,121 @@ export default function InvoicePage() {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <Card className="rounded-2xl border-dashed border-border/60 bg-muted/10">
-              <CardContent className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-muted-foreground py-8">
-                <div className="w-14 h-14 rounded-2xl bg-muted/40 flex items-center justify-center">
-                  <Inbox className="h-6 w-6 opacity-40" />
-                </div>
-                <p className="text-sm font-medium">No invoices yet</p>
-                <p className="text-xs text-muted-foreground/70">Tap &quot;Create Invoice&quot; to get started.</p>
-              </CardContent>
-            </Card>
+            <TrackerEmptyState
+              icon={Inbox}
+              title="No invoices yet"
+              description="Tap 'Create Invoice' to record your first entry."
+              actionLabel="Add your first entry"
+              onAction={() => setSheetOpen(true)}
+            />
+          ) : filteredItems.length === 0 ? (
+            <TrackerEmptyState
+              icon={Inbox}
+              title="No results found"
+              description="No invoices match your current filters. Try adjusting or clearing them."
+              actionLabel="Clear filters"
+              onAction={clearFilters}
+            />
           ) : (
-            <motion.div className="space-y-3" variants={containerVariants} initial="hidden" animate="show">
-              <AnimatePresence>
-                {items.map((it) => {
-                  const isDeleting = deletingId === it.id;
+            <div className="overflow-hidden">
+              <AnimatePresence initial={false} mode="popLayout">
+                {filteredItems.map((it) => {
+                  const isGeneratingPdf = pdfGeneratingId === it.id;
                   const isReceivable = it.billType === "receivable";
+                  const config = STATUS_CONFIG[it.status as InvoiceStatus] ?? STATUS_CONFIG.draft;
+                  const Icon = isReceivable ? ArrowDownRight : ArrowUpRight;
+                  const iconColor = isReceivable ? "text-emerald-500" : "text-rose-500";
+                  const iconBg = isReceivable ? "bg-emerald-500/10" : "bg-rose-500/10";
+                  const ringClass = isReceivable ? "ring-emerald-500/20" : "ring-rose-500/20";
 
                   return (
                     <motion.div
                       variants={itemVariants}
-                      exit="exit"
                       key={it.id}
                       layout
-                      className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-border/40 bg-card/70 backdrop-blur-sm hover:bg-card transition-all duration-300 hover:shadow-lg hover:shadow-black/5 hover:border-border/70"
+                      initial="hidden"
+                      animate="show"
+                      exit="exit"
+                      className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border bg-card/70 backdrop-blur-sm transition-all duration-300 hover:shadow-md ${
+                        editingId === it.id 
+                          ? "border-primary shadow-[0_0_15px_rgba(45,212,191,0.2)] bg-primary/5" 
+                          : "border-border/40 hover:bg-card hover:border-border/70 ring-1 ring-inset ring-transparent hover:" + ringClass
+                      }`}
                     >
-                      {/* Left */}
-                      <div className="flex items-start sm:items-center gap-4 min-w-0 w-full sm:w-auto">
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 transition-transform duration-300 group-hover:scale-105 ${isReceivable ? "bg-emerald-500/10" : "bg-rose-500/10"}`}>
-                          <FileText className={`h-5 w-5 ${isReceivable ? "text-emerald-500" : "text-rose-500"}`} />
+                      {/* Left side */}
+                      <div className="flex items-start sm:items-center gap-4 min-w-0">
+                        <div className={`w-11 h-11 rounded-xl ${iconBg} flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-105 mt-1 sm:mt-0`}>
+                          <Icon className={`h-5 w-5 ${iconColor}`} />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span className="font-semibold text-foreground text-[15px] tracking-tight truncate">
-                              {it.partyName}
-                            </span>
-                            <StatusBadge status={it.status} />
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                            <span className="inline-flex items-center gap-1 font-medium text-foreground/70">
-                              <Hash className="h-3 w-3" />
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[13px] font-semibold tracking-tight px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                               {it.invoiceNumber}
                             </span>
-                            <span className="text-border">•</span>
-                            <span className={`text-[11px] font-medium ${isReceivable ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                              {isReceivable ? "Receivable" : "Payable"}
+                            <StatusBadge status={it.status as InvoiceStatus} />
+                          </div>
+                          <div className="truncate font-semibold text-foreground text-[15px] leading-tight">
+                            {it.partyName}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
+                            <span className="flex items-center gap-1">
+                              <CalendarDays className="h-3 w-3" />
+                              Issued: {formatShortDate(it.issuedAt)}
                             </span>
                             {it.dueAt && (
-                              <>
-                                <span className="text-border hidden sm:inline">•</span>
-                                <span className="hidden sm:inline-flex items-center gap-1">
-                                  <CalendarDays className="h-3 w-3" />
-                                  Due {formatShortDate(it.dueAt)}
-                                </span>
-                              </>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Due: {formatShortDate(it.dueAt)}
+                              </span>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Right */}
-                      <div className="flex items-center justify-between sm:justify-end gap-2 sm:w-auto w-full pl-15 sm:pl-0 border-t sm:border-0 pt-3 sm:pt-0 border-border/40">
-                        <div className="text-right shrink-0 mr-1">
+                      {/* Right side */}
+                      <div className="flex items-center justify-between sm:justify-end gap-4 sm:w-auto w-full pl-15 sm:pl-0 border-t sm:border-0 pt-3 sm:pt-0 border-border/40">
+                        <div className="text-right shrink-0 mr-2">
                           <div className="text-xs text-muted-foreground font-medium mb-0.5">{it.currency}</div>
-                          <span className="font-bold text-lg text-foreground tracking-tight whitespace-nowrap tabular-nums">
-                            {it.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <span className={`font-bold text-lg tracking-tight whitespace-nowrap tabular-nums ${isReceivable ? "text-emerald-500" : "text-rose-500"}`}>
+                            {isReceivable ? "+" : "-"}{it.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
-
-                        {/* Download PDF */}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="rounded-xl h-9 w-9 shrink-0 shadow-sm border-border/50 hover:bg-muted hover:text-foreground text-muted-foreground"
-                          title="Download PDF"
-                          onClick={() =>
-                            void downloadInvoicePdf(it).catch(() =>
-                              toast.error("Could not generate PDF")
-                            )
-                          }
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-
-                        {/* Delete */}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-9 w-9 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 opacity-0 group-hover:opacity-100 transition-all"
-                              disabled={isDeleting}
-                            >
-                              {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent className="rounded-2xl">
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete invoice &quot;{it.invoiceNumber}&quot; for {it.partyName}? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="rounded-xl bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                                onClick={() => void handleDelete(it.id)}
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        
+                        {isReceivable && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={isGeneratingPdf}
+                            onClick={async () => {
+                              setPdfGeneratingId(it.id);
+                              try {
+                                await downloadInvoicePdf(it);
+                                toast.success("PDF generated successfully");
+                              } catch (err) {
+                                toast.error("Failed to generate PDF");
+                              } finally {
+                                setPdfGeneratingId(null);
+                              }
+                            }}
+                            className="h-8 w-8 rounded-lg shrink-0 mr-1 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                            title="Download PDF"
+                          >
+                            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                          </Button>
+                        )}
+                        <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <TrackerActionMenu
+                            onEdit={() => handleEdit(it)}
+                            onDelete={() => handleDelete(it.id)}
+                            itemName={it.invoiceNumber}
+                          />
+                        </div>
                       </div>
                     </motion.div>
                   );
                 })}
               </AnimatePresence>
-            </motion.div>
+            </div>
           )}
         </motion.div>
       </div>

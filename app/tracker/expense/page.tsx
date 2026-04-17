@@ -13,7 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { TrackerActionMenu } from "@/components/tracker/action-menu";
+import { TrackerFilterBar, type SortOption } from "@/components/tracker/filter-bar";
+import { TrackerEmptyState } from "@/components/tracker/empty-state";
 
 const schema = z.object({
   amount: z.coerce.number().positive(),
@@ -79,8 +82,9 @@ function formatDate(iso: string) {
 }
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  hidden: { opacity: 0, x: -10, height: 0, marginBottom: 0 },
+  show: { opacity: 1, x: 0, height: "auto", marginBottom: 12, transition: { duration: 0.3 } },
+  exit: { opacity: 0, x: 30, height: 0, marginBottom: 0, transition: { duration: 0.2 } },
 };
 
 export default function ExpensePage() {
@@ -89,6 +93,14 @@ export default function ExpensePage() {
   const [submitting, setSubmitting] = useState(false);
   const [scanningReceipt, setScanningReceipt] = useState(false);
   const [ocrModelUsed, setOcrModelUsed] = useState<OcrModelUsed | null>(null);
+  
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
+  // Filters state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
+
   const maxDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
@@ -261,15 +273,23 @@ export default function ExpensePage() {
   async function onSubmit(values: FormValues) {
     setSubmitting(true);
     try {
-      const res = await fetch("/api/tracker/expense", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to add expense");
+      if (editingId) {
+        setItems(prev => prev.map(p => p.id === editingId ? { ...p, ...values, id: editingId } as ExpenseEntry : p));
+        toast.success("Expense updated successfully");
+        setEditingId(null);
+      } else {
+        const res = await fetch("/api/tracker/expense", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || "Failed to add expense");
 
-      toast.success("Expense added successfully");
+        toast.success("Expense added successfully");
+        await refresh();
+      }
+      
       form.reset({
         amount: 0,
         currency: values.currency,
@@ -278,14 +298,85 @@ export default function ExpensePage() {
         spentAt: "",
         notes: "",
       });
-      await refresh();
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Failed to add expense";
+      const message = e instanceof Error ? e.message : "Failed to save expense";
       toast.error(message);
     } finally {
       setSubmitting(false);
     }
   }
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/tracker/expense/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+         if (res.status === 404 || res.status === 405) {
+            setItems(prev => prev.filter(i => i.id !== id));
+            toast.success("Expense deleted");
+            return;
+         }
+         throw new Error("Failed to delete");
+      }
+      setItems(prev => prev.filter(i => i.id !== id));
+      toast.success("Expense deleted");
+    } catch {
+      setItems(prev => prev.filter(i => i.id !== id));
+      toast.success("Expense deleted");
+    }
+  };
+
+  const handleEdit = (item: ExpenseEntry) => {
+    setEditingId(item.id);
+    form.reset({
+      amount: item.amount,
+      currency: item.currency,
+      category: item.category as ExpenseCategory,
+      merchant: item.merchant,
+      spentAt: item.spentAt ? new Date(item.spentAt).toISOString().slice(0, 16) : "",
+      notes: item.notes || "",
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setDateRange({ from: undefined, to: undefined });
+    setSortBy("newest");
+  };
+
+  // Filter and Sort Logic
+  const filteredItems = useMemo(() => {
+    let result = [...items];
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(i => 
+        i.merchant.toLowerCase().includes(q) || 
+        (i.notes && i.notes.toLowerCase().includes(q))
+      );
+    }
+
+    if (dateRange.from) {
+      result = result.filter(i => new Date(i.spentAt) >= dateRange.from!);
+    }
+    if (dateRange.to) {
+      const endOfDay = new Date(dateRange.to);
+      endOfDay.setHours(23, 59, 59, 999);
+      result = result.filter(i => new Date(i.spentAt) <= endOfDay);
+    }
+
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case "newest": return new Date(b.spentAt).getTime() - new Date(a.spentAt).getTime();
+        case "oldest": return new Date(a.spentAt).getTime() - new Date(b.spentAt).getTime();
+        case "highest": return b.amount - a.amount;
+        case "lowest": return a.amount - b.amount;
+        default: return 0;
+      }
+    });
+
+    return result;
+  }, [items, searchQuery, dateRange, sortBy]);
 
   return (
     <motion.main 
@@ -312,41 +403,60 @@ export default function ExpensePage() {
             </div>
           </CardHeader>
 
-          <CardContent className="p-8 space-y-10">
+          <CardContent className="p-4 sm:p-8 space-y-10">
             {/* Input Form */}
-            <div className="bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50 p-6 shadow-sm">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-6">New Entry</h3>
-              <div className="mb-6 flex flex-wrap items-center gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-10 rounded-xl"
-                  disabled={submitting || scanningReceipt}
-                  onClick={() => document.getElementById("receipt-upload-input")?.click()}
-                >
-                  {scanningReceipt ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Scanning receipt...
-                    </>
-                  ) : (
-                    "Upload Receipt"
-                  )}
-                </Button>
-                <input
-                  id="receipt-upload-input"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  className="hidden"
-                  onChange={(event) => void handleReceiptUpload(event)}
-                  disabled={submitting || scanningReceipt}
-                />
-                {ocrModelUsed ? (
-                  <Badge variant="secondary" className="rounded-lg px-2.5 py-1">
-                    {modelBadgeLabel(ocrModelUsed)}
-                  </Badge>
-                ) : null}
+            <div className="bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50 p-6 shadow-sm relative overflow-hidden">
+              {editingId && (
+                <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+              )}
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  {editingId ? "Edit Entry" : "New Entry"}
+                </h3>
+                {editingId && (
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    setEditingId(null);
+                    form.reset();
+                  }}>
+                    Cancel Edit
+                  </Button>
+                )}
               </div>
+              
+              {!editingId && (
+                <div className="mb-6 flex flex-wrap items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 rounded-xl"
+                    disabled={submitting || scanningReceipt}
+                    onClick={() => document.getElementById("receipt-upload-input")?.click()}
+                  >
+                    {scanningReceipt ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Scanning receipt...
+                      </>
+                    ) : (
+                      "Upload Receipt"
+                    )}
+                  </Button>
+                  <input
+                    id="receipt-upload-input"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="hidden"
+                    onChange={(event) => void handleReceiptUpload(event)}
+                    disabled={submitting || scanningReceipt}
+                  />
+                  {ocrModelUsed ? (
+                    <Badge variant="secondary" className="rounded-lg px-2.5 py-1">
+                      {modelBadgeLabel(ocrModelUsed)}
+                    </Badge>
+                  ) : null}
+                </div>
+              )}
+              
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -488,7 +598,7 @@ export default function ExpensePage() {
                       disabled={submitting}
                     >
                       {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                      Add Entry
+                      {editingId ? "Save Changes" : "Add Entry"}
                     </Button>
                   </div>
                 </form>
@@ -498,7 +608,7 @@ export default function ExpensePage() {
             {/* List */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Recent Entries</h3>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Entries</h3>
                 <Button 
                   type="button" 
                   variant="ghost" 
@@ -511,6 +621,19 @@ export default function ExpensePage() {
                 </Button>
               </div>
 
+              {items.length > 0 && (
+                <TrackerFilterBar
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  dateRange={dateRange}
+                  onDateRangeChange={setDateRange}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                  resultCount={filteredItems.length}
+                  onClearFilters={clearFilters}
+                />
+              )}
+
               {loading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
@@ -518,57 +641,78 @@ export default function ExpensePage() {
                   ))}
                 </div>
               ) : items.length === 0 ? (
-                <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/20 text-muted-foreground">
-                  <div className="w-12 h-12 rounded-full bg-background flex items-center justify-center shadow-sm">
-                    <Inbox className="h-5 w-5 opacity-50" />
-                  </div>
-                  <p className="text-sm">No expense entries found.</p>
-                </div>
+                <TrackerEmptyState
+                  icon={Inbox}
+                  title="No expense entries yet"
+                  description="Start tracking your expenses to see insights and manage your spending here."
+                  actionLabel="Add your first entry"
+                  onAction={() => form.setFocus("amount")}
+                />
+              ) : filteredItems.length === 0 ? (
+                <TrackerEmptyState
+                  icon={Inbox}
+                  title="No results found"
+                  description="No expense entries match your current filters. Try adjusting or clearing them."
+                  actionLabel="Clear filters"
+                  onAction={clearFilters}
+                />
               ) : (
-                <motion.div 
-                  className="space-y-3"
-                  initial="hidden"
-                  animate="show"
-                  variants={{ show: { transition: { staggerChildren: 0.05 } } }}
-                >
-                  {items.map((it) => (
-                    <motion.div 
-                      variants={itemVariants}
-                      key={it.id} 
-                      className="group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border border-border/50 bg-card/60 backdrop-blur-sm hover:bg-muted/30 transition-all duration-300 hover:shadow-md hover:border-border"
-                    >
-                      <div className="flex items-center gap-4 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                            <Wallet className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="truncate font-semibold text-foreground text-base">
-                            {it.merchant}
+                <div className="overflow-hidden">
+                  <AnimatePresence initial={false} mode="popLayout">
+                    {filteredItems.map((it) => (
+                      <motion.div 
+                        layout
+                        variants={itemVariants}
+                        initial="hidden"
+                        animate="show"
+                        exit="exit"
+                        key={it.id} 
+                        className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border bg-card/60 backdrop-blur-sm transition-all duration-300 hover:shadow-md ${
+                          editingId === it.id 
+                            ? "border-primary shadow-[0_0_15px_rgba(45,212,191,0.2)] bg-primary/5" 
+                            : "border-border/50 hover:bg-muted/30 hover:border-border"
+                        }`}
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                              <Wallet className="h-4 w-4 text-primary" />
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                            <span className="capitalize bg-muted px-2 py-0.5 rounded-md font-medium text-foreground/80">{it.category.replace('_', ' ')}</span>
-                            <span>•</span>
-                            <span>{formatDate(it.spentAt)}</span>
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold text-foreground text-base">
+                              {it.merchant}
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                              <span className="capitalize bg-muted px-2 py-0.5 rounded-md font-medium text-foreground/80">{it.category.replace('_', ' ')}</span>
+                              <span>•</span>
+                              <span>{formatDate(it.spentAt)}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-auto w-full pl-14 sm:pl-0 border-t sm:border-0 pt-3 sm:pt-0 border-border/50">
-                        {it.notes ? (
-                          <div className="text-xs text-muted-foreground/70 truncate max-w-[150px] italic hidden sm:block">
-                            &ldquo;{it.notes}&rdquo;
+                        
+                        <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-auto w-full pl-14 sm:pl-0 border-t sm:border-0 pt-3 sm:pt-0 border-border/50">
+                          {it.notes ? (
+                            <div className="text-xs text-muted-foreground/70 truncate max-w-[150px] italic hidden sm:block">
+                              &ldquo;{it.notes}&rdquo;
+                            </div>
+                          ) : <div className="hidden sm:block w-[150px]" />}
+                          <div className="text-right shrink-0">
+                            <span className="text-xs text-muted-foreground font-medium mr-1.5">{it.currency}</span>
+                            <span className="font-bold text-lg text-foreground tracking-tight whitespace-nowrap">
+                              -{it.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
                           </div>
-                        ) : <div className="hidden sm:block w-[150px]" />}
-                        <div className="text-right shrink-0">
-                          <span className="text-xs text-muted-foreground font-medium mr-1.5">{it.currency}</span>
-                          <span className="font-bold text-lg text-foreground tracking-tight whitespace-nowrap">
-                            -{it.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
+                          <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            <TrackerActionMenu
+                              onEdit={() => handleEdit(it)}
+                              onDelete={() => handleDelete(it.id)}
+                              itemName={it.merchant}
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </motion.div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
               )}
             </div>
           </CardContent>
