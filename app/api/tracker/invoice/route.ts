@@ -7,6 +7,8 @@ import {
   createInvoiceEntry,
   normalizeInvoiceInput,
 } from "@/lib/invoice";
+import { generateInvoicePdfBuffer } from "@/lib/invoice-pdf-server";
+import { sendInvoiceEmail } from "@/lib/email";
 
 export async function DELETE(request: Request) {
   const user = await getCurrentUserAction();
@@ -94,7 +96,25 @@ export async function POST(request: Request) {
       ...normalized,
     });
 
-    return NextResponse.json({ item: created }, { status: 201 });
+    let emailSent = false;
+    if (created.billType === "receivable" && created.clientEmail) {
+      try {
+        const pdfBuffer = await generateInvoicePdfBuffer(created);
+        await sendInvoiceEmail({
+          to: created.clientEmail,
+          invoice: created,
+          pdfBuffer,
+        });
+        emailSent = true;
+      } catch (mailError) {
+        console.error(
+          "Invoice created but failed to send email:",
+          mailError instanceof Error ? mailError.message : mailError
+        );
+      }
+    }
+
+    return NextResponse.json({ item: created, emailSent }, { status: 201 });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Invalid input";
     return NextResponse.json({ message }, { status: 400 });

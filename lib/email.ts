@@ -1,30 +1,43 @@
 import nodemailer from "nodemailer";
+import type { InvoiceEntry } from "@/types/invoice";
 
-const requiredEnvVars = [
-  "EMAIL_HOST",
-  "EMAIL_PORT",
-  "EMAIL_USER",
-  "EMAIL_PASS",
-  "EMAIL_FROM",
-];
-function getTransporter() {
-  const missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
-  if (missingEnvVars.length > 0) {
+function getEmailConfig() {
+  const host = process.env.EMAIL_HOST || process.env.SMTP_HOST || "";
+  const portRaw = process.env.EMAIL_PORT || process.env.SMTP_PORT || "";
+  const user = process.env.EMAIL_USER || process.env.SMTP_USER || "";
+  const pass = process.env.EMAIL_PASS || process.env.SMTP_PASS || "";
+  const from = process.env.EMAIL_FROM || process.env.SMTP_FROM || user;
+
+  const missing: string[] = [];
+  if (!host) missing.push("EMAIL_HOST|SMTP_HOST");
+  if (!portRaw) missing.push("EMAIL_PORT|SMTP_PORT");
+  if (!user) missing.push("EMAIL_USER|SMTP_USER");
+  if (!pass) missing.push("EMAIL_PASS|SMTP_PASS");
+  if (!from) missing.push("EMAIL_FROM|SMTP_FROM|SMTP_USER");
+
+  if (missing.length > 0) {
     throw new Error(
-      `Missing required environment variables for email: ${missingEnvVars.join(
-        ", "
-      )}`
+      `Missing required environment variables for email: ${missing.join(", ")}`
     );
   }
 
-  const port = Number(process.env.EMAIL_PORT);
+  const port = Number(portRaw);
+  if (!Number.isFinite(port) || port <= 0) {
+    throw new Error("Invalid email port. Set EMAIL_PORT or SMTP_PORT correctly.");
+  }
+
+  return { host, port, user, pass, from };
+}
+
+function getTransporter() {
+  const cfg = getEmailConfig();
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port,
-    secure: port === 465,
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.port === 465,
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: cfg.user,
+      pass: cfg.pass,
     },
   });
 }
@@ -37,10 +50,9 @@ function getTransporter() {
 export async function sendOTPEmail(to: string, otp: string) {
   try {
     const transporter = getTransporter();
+    const cfg = getEmailConfig();
     const info = await transporter.sendMail({
-      from: `"${process.env.APP_NAME || "Your App"}" <${
-        process.env.EMAIL_FROM
-      }>`,
+      from: `"${process.env.APP_NAME || "Your App"}" <${cfg.from}>`,
       to: to,
       subject: "Your Password Reset Code",
       text: `Your One-Time Password (OTP) for resetting your password is: ${otp}. It expires in 10 minutes.`,
@@ -61,5 +73,47 @@ export async function sendOTPEmail(to: string, otp: string) {
     console.error("Error sending email:", error);
 
     throw new Error("Failed to send the password reset email.");
+  }
+}
+
+export async function sendInvoiceEmail(params: {
+  to: string;
+  invoice: InvoiceEntry;
+  pdfBuffer: Buffer;
+}) {
+  try {
+    const transporter = getTransporter();
+    const cfg = getEmailConfig();
+    const safeInvoiceName =
+      params.invoice.invoiceNumber
+        .replace(/[^\w\-.]+/g, "_")
+        .replace(/^_|_$/g, "")
+        .slice(0, 80) || "invoice";
+
+    await transporter.sendMail({
+      from: `"${process.env.APP_NAME || "Your App"}" <${cfg.from}>`,
+      to: params.to,
+      subject: `Invoice ${params.invoice.invoiceNumber}`,
+      text: `Hello,\n\nPlease find your invoice ${params.invoice.invoiceNumber} attached.\n\nAmount: ${params.invoice.currency} ${params.invoice.amount.toLocaleString()}\nStatus: ${params.invoice.status}\n\nThank you.`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+          <h2 style="color: #333;">Invoice ${params.invoice.invoiceNumber}</h2>
+          <p>Please find your invoice attached as PDF.</p>
+          <p><strong>Party:</strong> ${params.invoice.partyName}</p>
+          <p><strong>Amount:</strong> ${params.invoice.currency} ${params.invoice.amount.toLocaleString()}</p>
+          <p><strong>Status:</strong> ${params.invoice.status}</p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: `${safeInvoiceName}.pdf`,
+          content: params.pdfBuffer,
+          contentType: "application/pdf",
+        },
+      ],
+    });
+  } catch (error) {
+    console.error("Error sending invoice email:", error);
+    throw new Error("Failed to send invoice email.");
   }
 }

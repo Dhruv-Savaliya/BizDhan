@@ -5,6 +5,7 @@ import type { InvoiceBillType, InvoiceEntry, InvoiceStatus } from "@/types/invoi
 export function normalizeInvoiceInput(input: {
   invoiceNumber: unknown;
   partyName: unknown;
+  clientEmail?: unknown;
   billType?: unknown;
   amount: unknown;
   currency?: unknown;
@@ -22,10 +23,25 @@ export function normalizeInvoiceInput(input: {
   const partyName = typeof input.partyName === "string" ? input.partyName.trim() : "";
   if (!partyName) throw new Error("Party name is required");
 
+  const clientEmailRaw = typeof input.clientEmail === "string" ? input.clientEmail.trim() : "";
+
   const billTypeRaw = typeof input.billType === "string" ? input.billType : "payable";
   const billType = billTypeRaw as InvoiceBillType;
   if (billType !== "payable" && billType !== "receivable") {
     throw new Error("Invalid bill type");
+  }
+
+  let clientEmail: string | undefined;
+  if (billType === "receivable") {
+    if (!clientEmailRaw) {
+      throw new Error("Client email is required for receivable invoices");
+    }
+    const email = clientEmailRaw.toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new Error("Invalid client email");
+    }
+    clientEmail = email;
   }
 
   const amountNum = typeof input.amount === "number" ? input.amount : Number(input.amount);
@@ -73,6 +89,7 @@ export function normalizeInvoiceInput(input: {
   return {
     invoiceNumber,
     partyName,
+    clientEmail,
     billType,
     amount: amountNum,
     currency,
@@ -89,6 +106,7 @@ export async function createInvoiceEntry(params: {
   workspaceId: string;
   invoiceNumber: string;
   partyName: string;
+  clientEmail?: string;
   billType: InvoiceBillType;
   amount: number;
   currency: string;
@@ -105,6 +123,7 @@ export async function createInvoiceEntry(params: {
     workspaceId: params.workspaceId,
     invoiceNumber: params.invoiceNumber,
     partyName: params.partyName,
+    clientEmail: params.clientEmail,
     billType: params.billType,
     amount: params.amount,
     currency: params.currency,

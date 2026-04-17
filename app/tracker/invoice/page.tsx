@@ -127,6 +127,7 @@ const schema = z
   .object({
     invoiceNumber: z.string().min(1, "Invoice or bill number is required"),
     partyName: z.string().min(1, "Party name is required"),
+    clientEmail: z.string().optional(),
     billType: z.enum(["payable", "receivable"]),
     amount: z.coerce.number().positive(),
     currency: z.string().min(3).max(3).default("INR"),
@@ -136,6 +137,23 @@ const schema = z
     notes: z.string().optional(),
   })
   .superRefine((values, ctx) => {
+    if (values.billType === "receivable") {
+      const email = values.clientEmail?.trim();
+      if (!email) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["clientEmail"],
+          message: "Client email is required for receivable invoices.",
+        });
+      } else if (!z.string().email().safeParse(email).success) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["clientEmail"],
+          message: "Enter a valid client email.",
+        });
+      }
+    }
+
     if (!values.dueAt) return;
     const dueDate = new Date(values.dueAt);
     if (Number.isNaN(dueDate.getTime())) return;
@@ -209,6 +227,7 @@ export default function InvoicePage() {
     defaultValues: {
       invoiceNumber: "",
       partyName: "",
+      clientEmail: "",
       billType: "receivable",
       amount: 0,
       currency: "INR",
@@ -218,6 +237,14 @@ export default function InvoicePage() {
       notes: "",
     },
   });
+  const selectedBillType = form.watch("billType");
+
+  useEffect(() => {
+    if (selectedBillType === "payable") {
+      form.setValue("clientEmail", "");
+      form.clearErrors("clientEmail");
+    }
+  }, [selectedBillType, form]);
 
   async function refresh() {
     setLoading(true);
@@ -249,10 +276,19 @@ export default function InvoicePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to create invoice");
 
-      toast.success("Invoice created successfully");
+      if (values.billType === "receivable") {
+        toast.success(
+          data.emailSent
+            ? "Invoice created and sent to client email"
+            : "Invoice created, but email could not be sent"
+        );
+      } else {
+        toast.success("Invoice created successfully");
+      }
       form.reset({
         invoiceNumber: "",
         partyName: "",
+        clientEmail: values.billType === "receivable" ? values.clientEmail ?? "" : "",
         billType: values.billType,
         amount: 0,
         currency: values.currency,
@@ -442,6 +478,28 @@ export default function InvoicePage() {
                         </FormItem>
                       )}
                     />
+
+                    {selectedBillType === "receivable" && (
+                      <FormField
+                        control={form.control}
+                        name="clientEmail"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Client Email</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="email"
+                                placeholder="client@example.com"
+                                className="rounded-xl h-11"
+                                {...field}
+                                disabled={submitting}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
 
                     {/* Status */}
                     <FormField

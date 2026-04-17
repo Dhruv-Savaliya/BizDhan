@@ -1,3 +1,5 @@
+import "server-only";
+
 import type { InvoiceBillType, InvoiceEntry, InvoiceStatus } from "@/types/invoice";
 
 function billTypeLabel(t: InvoiceBillType) {
@@ -15,7 +17,7 @@ function statusLabel(s: InvoiceStatus) {
   return map[s];
 }
 
-async function buildInvoicePdfDoc(entry: InvoiceEntry) {
+export async function generateInvoicePdfBuffer(entry: InvoiceEntry): Promise<Buffer> {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF();
   const pageW = doc.internal.pageSize.getWidth();
@@ -76,13 +78,5 @@ async function buildInvoicePdfDoc(entry: InvoiceEntry) {
   doc.setTextColor(90, 90, 90);
   doc.text(`Generated ${new Date().toLocaleString()}`, margin, y);
 
-  return doc;
-}
-
-export async function downloadInvoicePdf(entry: InvoiceEntry) {
-  const doc = await buildInvoicePdfDoc(entry);
-  const safe =
-    entry.invoiceNumber.replace(/[^\w\-.]+/g, "_").replace(/^_|_$/g, "").slice(0, 80) ||
-    "invoice";
-  doc.save(`${safe}.pdf`);
+  return Buffer.from(doc.output("arraybuffer"));
 }

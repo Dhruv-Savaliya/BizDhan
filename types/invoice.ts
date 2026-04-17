@@ -8,6 +8,7 @@ export interface InvoiceEntry {
   workspaceId: string;
   invoiceNumber: string;
   partyName: string;
+  clientEmail?: string;
   billType: InvoiceBillType;
   amount: number;
   currency: string;
