@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 
 const schema = z.object({
@@ -40,6 +41,31 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+type OcrCategory =
+  | "Food"
+  | "Groceries"
+  | "Transport"
+  | "Utilities"
+  | "Shopping"
+  | "Healthcare"
+  | "Entertainment"
+  | "Other";
+
+type OcrModelUsed =
+  | "tesseract+groq"
+  | "gemini-vision"
+  | "tesseract+gemini"
+  | "pdfjs+groq"
+  | "pdfjs+gemini";
+
+type OcrPayload = {
+  amount: number | null;
+  date: string | null;
+  merchant: string | null;
+  category: OcrCategory | null;
+  notes: string | null;
+};
+
 function formatDate(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -61,6 +87,8 @@ export default function ExpensePage() {
   const [items, setItems] = useState<ExpenseEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [scanningReceipt, setScanningReceipt] = useState(false);
+  const [ocrModelUsed, setOcrModelUsed] = useState<OcrModelUsed | null>(null);
   const maxDateTime = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
@@ -97,6 +125,119 @@ export default function ExpensePage() {
       ] as const satisfies ReadonlyArray<{ value: ExpenseCategory; label: string }>,
     []
   );
+
+  function mapOcrCategoryToExpenseCategory(category: OcrCategory | null): ExpenseCategory {
+    switch (category) {
+      case "Food":
+        return "food";
+      case "Groceries":
+        return "store_expense";
+      case "Transport":
+        return "transport";
+      case "Utilities":
+        return "utilities";
+      case "Shopping":
+        return "shopping";
+      case "Healthcare":
+        return "health";
+      case "Entertainment":
+        return "entertainment";
+      default:
+        return "other";
+    }
+  }
+
+  function modelBadgeLabel(model: OcrModelUsed) {
+    switch (model) {
+      case "gemini-vision":
+        return "Scanned via Gemini";
+      case "tesseract+groq":
+        return "Scanned via Tesseract + Groq";
+      case "tesseract+gemini":
+        return "Scanned via Tesseract + Gemini";
+      case "pdfjs+groq":
+        return "Scanned via PDF.js + Groq";
+      case "pdfjs+gemini":
+        return "Scanned via PDF.js + Gemini";
+      default:
+        return "Scanned";
+    }
+  }
+
+  async function handleReceiptUpload(event: ChangeEvent<HTMLInputElement>) {
+    const selectedFile = event.target.files?.[0];
+    event.target.value = "";
+    if (!selectedFile) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    if (!allowedTypes.includes(selectedFile.type)) {
+      toast.error("Unsupported file type. Upload JPG, PNG, WEBP, or PDF.");
+      return;
+    }
+
+    if (selectedFile.size > 5 * 1024 * 1024) {
+      toast.error("File too large. Maximum size is 5MB.");
+      return;
+    }
+
+    setScanningReceipt(true);
+    setOcrModelUsed(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const res = await fetch("/api/tracker/ocr", {
+        method: "POST",
+        body: formData,
+      });
+
+      const json = (await res.json()) as
+        | { success: true; data: OcrPayload; modelUsed?: OcrModelUsed }
+        | { success: false; error?: string };
+
+      if (!res.ok || !json.success) {
+        const message =
+          "error" in json && typeof json.error === "string"
+            ? json.error
+            : "Failed to scan receipt. Please fill manually.";
+        throw new Error(message);
+      }
+
+      const scanned = json.data;
+      if (typeof scanned.amount === "number" && Number.isFinite(scanned.amount)) {
+        form.setValue("amount", scanned.amount, { shouldValidate: true });
+      }
+
+      if (typeof scanned.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(scanned.date)) {
+        form.setValue("spentAt", `${scanned.date}T12:00`, { shouldValidate: true });
+      }
+
+      if (typeof scanned.merchant === "string" && scanned.merchant.trim()) {
+        form.setValue("merchant", scanned.merchant.trim(), { shouldValidate: true });
+      }
+
+      if (typeof scanned.notes === "string" && scanned.notes.trim()) {
+        form.setValue("notes", scanned.notes.trim(), { shouldValidate: true });
+      }
+
+      const mappedCategory = mapOcrCategoryToExpenseCategory(scanned.category ?? null);
+      form.setValue("category", mappedCategory, { shouldValidate: true });
+
+      const headerModel = res.headers.get("X-OCR-Model-Used");
+      const modelUsed =
+        (headerModel as OcrModelUsed | null) ??
+        (json.modelUsed && typeof json.modelUsed === "string" ? json.modelUsed : null);
+      setOcrModelUsed(modelUsed as OcrModelUsed | null);
+
+      toast.success("Receipt scanned! Please review the details.");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to scan receipt";
+      toast.error(message);
+    } finally {
+      setScanningReceipt(false);
+    }
+  }
 
   async function refresh() {
     setLoading(true);
@@ -175,6 +316,37 @@ export default function ExpensePage() {
             {/* Input Form */}
             <div className="bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50 p-6 shadow-sm">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-6">New Entry</h3>
+              <div className="mb-6 flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 rounded-xl"
+                  disabled={submitting || scanningReceipt}
+                  onClick={() => document.getElementById("receipt-upload-input")?.click()}
+                >
+                  {scanningReceipt ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Scanning receipt...
+                    </>
+                  ) : (
+                    "Upload Receipt"
+                  )}
+                </Button>
+                <input
+                  id="receipt-upload-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  className="hidden"
+                  onChange={(event) => void handleReceiptUpload(event)}
+                  disabled={submitting || scanningReceipt}
+                />
+                {ocrModelUsed ? (
+                  <Badge variant="secondary" className="rounded-lg px-2.5 py-1">
+                    {modelBadgeLabel(ocrModelUsed)}
+                  </Badge>
+                ) : null}
+              </div>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -228,6 +400,7 @@ export default function ExpensePage() {
                             <div className="relative">
                               <select
                                 aria-label="Expense category"
+                                suppressHydrationWarning
                                 className="h-11 w-full rounded-xl border border-border/50 bg-background px-4 py-2 text-sm shadow-sm appearance-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
                                 value={field.value}
                                 onChange={field.onChange}

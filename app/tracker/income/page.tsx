@@ -219,6 +219,7 @@ export default function IncomePage() {
                             <div className="relative">
                               <select
                                 aria-label="Income category"
+                                suppressHydrationWarning
                                 className="h-11 w-full rounded-xl border border-border/50 bg-background px-4 py-2 text-sm shadow-sm appearance-none transition-all focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:opacity-50"
                                 value={field.value}
                                 onChange={field.onChange}
