@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUserAction } from "@/app/actions/auth";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 import {
   calculateNextRun,
   RecurringTransaction,
@@ -30,11 +31,12 @@ async function ensureMongooseConnection() {
   await mongoose.connect(uri);
 }
 
-function resolveWorkspaceId(
-  user: Awaited<ReturnType<typeof getCurrentUserAction>>,
+async function resolveWorkspaceId(
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUserAction>>>,
   bodyWorkspaceId?: string
 ) {
-  return user?.defaultWorkspaceId ?? bodyWorkspaceId ?? "default";
+  const effective = await resolveActiveWorkspaceIdForUser(user);
+  return effective ?? bodyWorkspaceId ?? "default";
 }
 
 export async function PATCH(
@@ -65,7 +67,7 @@ export async function PATCH(
       );
     }
 
-    const workspaceId = resolveWorkspaceId(user, parsed.data.workspaceId);
+    const workspaceId = await resolveWorkspaceId(user, parsed.data.workspaceId);
     if (!mongoose.Types.ObjectId.isValid(user.id) || !mongoose.Types.ObjectId.isValid(workspaceId)) {
       return NextResponse.json(
         { message: "Invalid user or workspace identifier" },
@@ -134,7 +136,7 @@ export async function DELETE(
 
     const url = new URL(request.url);
     const workspaceFromQuery = url.searchParams.get("workspaceId") ?? undefined;
-    const workspaceId = resolveWorkspaceId(user, workspaceFromQuery);
+    const workspaceId = await resolveWorkspaceId(user, workspaceFromQuery);
 
     if (!mongoose.Types.ObjectId.isValid(user.id) || !mongoose.Types.ObjectId.isValid(workspaceId)) {
       return NextResponse.json(

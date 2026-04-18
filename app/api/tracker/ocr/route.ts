@@ -126,7 +126,7 @@ async function extractTextFromPdf(fileBuffer: Buffer): Promise<string> {
     disableWorker: true,
     isEvalSupported: false,
     useWorkerFetch: false,
-  } as any);
+  } as Parameters<typeof pdfjs.getDocument>[0]);
   const pdf = await loadingTask.promise;
 
   const pages: string[] = [];

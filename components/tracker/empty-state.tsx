@@ -1,4 +1,3 @@
-import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { LucideIcon } from "lucide-react";

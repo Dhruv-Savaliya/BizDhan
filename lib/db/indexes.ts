@@ -1,7 +1,6 @@
 import type { Db, IndexSpecification } from "mongodb";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __bizdhanEnsureIndexesPromise: Promise<void> | undefined;
 }
 

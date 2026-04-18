@@ -84,8 +84,29 @@ export default function LoginPage() {
 
       if (data.role === "admin") {
         router.push("/");
+        return;
+      }
+
+      const meRes = await fetch("/api/auth/me", { method: "GET" });
+      const meContentType = meRes.headers.get("content-type") ?? "";
+      const mePayload = meContentType.includes("application/json")
+        ? ((await meRes.json()) as { user?: { enabledWorkspaceKinds?: string[] } })
+        : {};
+      const u = mePayload.user;
+      const kinds = u?.enabledWorkspaceKinds ?? [];
+      if (!kinds.length) {
+        router.push("/tracker/no-workspace");
+        return;
+      }
+      const hasPersonal = kinds.includes("personal");
+      const hasSme = kinds.includes("sme");
+
+      if (hasPersonal && hasSme) {
+        router.push("/tracker/select-workspace");
+      } else if (hasSme && !hasPersonal) {
+        router.push("/tracker/sme/dashboard");
       } else {
-        router.push("/user");
+        router.push("/tracker/personal/dashboard");
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Login failed";

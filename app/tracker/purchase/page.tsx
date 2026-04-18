@@ -8,12 +8,10 @@ import { useForm, type Resolver } from "react-hook-form";
 import {
   Loader2,
   Plus,
-  Package,
   Inbox,
   RefreshCw,
   ShoppingCart,
   CalendarDays,
-  Trash2,
   Boxes,
   Wrench,
   PackageOpen,
@@ -29,7 +27,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { PurchaseCategory, PurchaseEntry } from "@/types/purchase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Form,
   FormControl,

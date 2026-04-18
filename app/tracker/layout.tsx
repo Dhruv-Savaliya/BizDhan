@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import { SME_TRACKER_NAV } from "@/constants/tracker/sme-nav";
@@ -8,6 +9,11 @@ import { Zap } from "lucide-react";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { TrackerSidebar } from "@/components/tracker/tracker-sidebar";
 import { TrackerMobileNav } from "@/components/tracker/tracker-mobile-nav";
+import {
+  ACTIVE_WORKSPACE_COOKIE,
+  getWorkspaceIdsForOwner,
+  resolveActiveWorkspaceIdFromCookie,
+} from "@/lib/workspace-for-user";
 
 type NavItem = { href: string; label: string; sub: string | null };
 
@@ -35,6 +41,19 @@ export default async function TrackerLayout({ children }: { children: ReactNode 
   const userName = user.name ?? user.email;
   const userEmail = user.email;
 
+  const { personalWorkspaceId, smeWorkspaceId } = await getWorkspaceIdsForOwner(user.id);
+
+  const cookieStore = await cookies();
+  const cookieKind = cookieStore.get(ACTIVE_WORKSPACE_COOKIE)?.value;
+  const effectiveDefaultWorkspaceId =
+    resolveActiveWorkspaceIdFromCookie({
+      cookieKind,
+      enabledWorkspaceKinds: kinds,
+      personalWorkspaceId,
+      smeWorkspaceId,
+      fallbackWorkspaceId: user.defaultWorkspaceId,
+    }) ?? user.defaultWorkspaceId;
+
   return (
     <div className="min-h-screen bg-background">
       {/* Background glow for depth */}
@@ -61,6 +80,9 @@ export default async function TrackerLayout({ children }: { children: ReactNode 
           both={both}
           userName={userName}
           userEmail={userEmail}
+          personalWorkspaceId={personalWorkspaceId}
+          smeWorkspaceId={smeWorkspaceId}
+          defaultWorkspaceId={effectiveDefaultWorkspaceId}
         />
         
         {/* Main Content Area */}
@@ -75,6 +97,9 @@ export default async function TrackerLayout({ children }: { children: ReactNode 
         both={both}
         userName={userName}
         userEmail={userEmail}
+        personalWorkspaceId={personalWorkspaceId}
+        smeWorkspaceId={smeWorkspaceId}
+        defaultWorkspaceId={effectiveDefaultWorkspaceId}
       />
     </div>
   );

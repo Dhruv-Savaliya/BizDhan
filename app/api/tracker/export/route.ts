@@ -6,6 +6,7 @@ import { aggregateFinancials } from "@/lib/export/aggregateFinancials";
 import { generateCSV } from "@/lib/export/generateCSV";
 import { generatePDF } from "@/lib/export/generatePDF";
 import type { Workspace } from "@/types/workspace";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 
 const querySchema = z.object({
   workspaceId: z.string().min(1, "workspaceId is required"),
@@ -18,8 +19,11 @@ async function workspaceGuard(request: Request, workspaceId: string, action: "re
   const user = await getCurrentUserAction();
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
+  const effectiveWorkspaceId = await resolveActiveWorkspaceIdForUser(user);
   const hasMembership = Boolean(
-    user.workspaceIds?.includes(workspaceId) || user.defaultWorkspaceId === workspaceId
+    user.workspaceIds?.includes(workspaceId) ||
+      user.defaultWorkspaceId === workspaceId ||
+      effectiveWorkspaceId === workspaceId
   );
 
   if (!hasMembership) {
@@ -103,7 +107,7 @@ export async function GET(request: Request) {
   }
 
   const pdfBuffer = await generatePDF(data);
-  return new NextResponse(pdfBuffer, {
+  return new NextResponse(pdfBuffer as unknown as BodyInit, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="bizdhan-report-${params.from}-to-${params.to}.pdf"`,

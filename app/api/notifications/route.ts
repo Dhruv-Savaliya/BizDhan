@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import Notification from "@/lib/models/Notification";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 
 async function ensureMongooseConnection() {
   if (mongoose.connection.readyState >= 1) return;
@@ -12,11 +13,12 @@ async function ensureMongooseConnection() {
   await mongoose.connect(uri);
 }
 
-function resolveWorkspaceId(
-  user: Awaited<ReturnType<typeof getCurrentUserAction>>,
+async function resolveWorkspaceId(
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUserAction>>>,
   queryWorkspaceId?: string
 ) {
-  return user?.defaultWorkspaceId ?? queryWorkspaceId ?? "default";
+  const effective = await resolveActiveWorkspaceIdForUser(user);
+  return effective ?? queryWorkspaceId ?? "default";
 }
 
 export async function GET(request: Request) {
@@ -29,7 +31,7 @@ export async function GET(request: Request) {
     const limitRaw = url.searchParams.get("limit");
     const cursor = url.searchParams.get("cursor");
     const workspaceFromQuery = url.searchParams.get("workspaceId") ?? undefined;
-    const workspaceId = resolveWorkspaceId(user, workspaceFromQuery);
+    const workspaceId = await resolveWorkspaceId(user, workspaceFromQuery);
 
     const limit = limitRaw === null ? 20 : Number(limitRaw);
     if (!Number.isInteger(limit) || limit <= 0 || limit > 100) {

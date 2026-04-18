@@ -14,14 +14,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
-import Image from "next/image";
 import { Menu, ArrowRight, User, LogOut, Settings, ListChecks, Sparkles } from "lucide-react";
-import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
+import { motion, useMotionValue, useSpring } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { NAVBAR } from "@/constants/layout/navbar-constants";
-import { SME_TRACKER_NAV } from "@/constants/tracker/sme-nav";
-import { PERSONAL_TRACKER_NAV } from "@/constants/tracker/personal-nav";
 import { UserRole } from "@/types/roles";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 

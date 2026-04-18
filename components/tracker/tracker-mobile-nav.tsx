@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Drawer } from "vaul";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { TrackerLogoutMenu } from "@/components/tracker/tracker-logout";
+import { useWorkspaceSwitcher } from "@/components/tracker/use-workspace-switch";
 import {
   TrendingUp,
   TrendingDown,
@@ -29,6 +30,9 @@ type TrackerMobileNavProps = {
   both: boolean;
   userName: string;
   userEmail: string;
+  personalWorkspaceId?: string;
+  smeWorkspaceId?: string;
+  defaultWorkspaceId?: string;
 };
 
 const getIconForLabel = (label: string): LucideIcon => {
@@ -50,11 +54,19 @@ export function TrackerMobileNav({
   smeNav,
   both,
   userName,
-  userEmail
+  userEmail,
+  personalWorkspaceId,
+  smeWorkspaceId,
+  defaultWorkspaceId,
 }: TrackerMobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [activeWorkspace, setActiveWorkspace] = useState<"personal" | "sme">("personal");
+  const { activeWorkspace, switchWorkspace } = useWorkspaceSwitcher({
+    both,
+    personalWorkspaceId,
+    smeWorkspaceId,
+    defaultWorkspaceId,
+  });
 
   const initials = userName
     .split(" ")
@@ -135,7 +147,8 @@ export function TrackerMobileNav({
                 <div className="pt-6">
                   <div className="flex rounded-full bg-muted/50 p-1">
                     <button
-                      onClick={() => setActiveWorkspace("personal")}
+                      type="button"
+                      onClick={() => void switchWorkspace("personal")}
                       className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-colors ${
                         activeWorkspace === "personal"
                           ? "bg-primary text-primary-foreground shadow-sm"
@@ -145,7 +158,8 @@ export function TrackerMobileNav({
                       Personal
                     </button>
                     <button
-                      onClick={() => setActiveWorkspace("sme")}
+                      type="button"
+                      onClick={() => void switchWorkspace("sme")}
                       className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-colors ${
                         activeWorkspace === "sme"
                           ? "bg-primary text-primary-foreground shadow-sm"

@@ -2,10 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { TrackerLogoutMenu } from "@/components/tracker/tracker-logout";
+import { useWorkspaceSwitcher } from "@/components/tracker/use-workspace-switch";
 import {
   TrendingUp,
   TrendingDown,
@@ -27,6 +27,9 @@ type TrackerSidebarProps = {
   both: boolean;
   userName: string;
   userEmail: string;
+  personalWorkspaceId?: string;
+  smeWorkspaceId?: string;
+  defaultWorkspaceId?: string;
 };
 
 const getIconForLabel = (label: string): LucideIcon => {
@@ -48,10 +51,18 @@ export function TrackerSidebar({
   smeNav,
   both,
   userName,
-  userEmail
+  userEmail,
+  personalWorkspaceId,
+  smeWorkspaceId,
+  defaultWorkspaceId,
 }: TrackerSidebarProps) {
   const pathname = usePathname();
-  const [activeWorkspace, setActiveWorkspace] = useState<"personal" | "sme">("personal");
+  const { activeWorkspace, switchWorkspace } = useWorkspaceSwitcher({
+    both,
+    personalWorkspaceId,
+    smeWorkspaceId,
+    defaultWorkspaceId,
+  });
 
   const initials = userName
     .split(" ")
@@ -95,7 +106,8 @@ export function TrackerSidebar({
           <div className="px-6 pt-6">
             <div className="flex rounded-full bg-muted/50 p-1">
               <button
-                onClick={() => setActiveWorkspace("personal")}
+                type="button"
+                onClick={() => void switchWorkspace("personal")}
                 className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-colors ${
                   activeWorkspace === "personal"
                     ? "bg-primary text-primary-foreground shadow-sm"
@@ -105,7 +117,8 @@ export function TrackerSidebar({
                 Personal
               </button>
               <button
-                onClick={() => setActiveWorkspace("sme")}
+                type="button"
+                onClick={() => void switchWorkspace("sme")}
                 className={`flex-1 rounded-full py-1.5 text-xs font-medium transition-colors ${
                   activeWorkspace === "sme"
                     ? "bg-primary text-primary-foreground shadow-sm"

@@ -33,7 +33,7 @@ export async function suggestCategory(
   amount: number,
   type: "income" | "expense"
 ): Promise<string> {
-  const allowedCategories =
+  const allowedCategories: string[] =
     type === "expense" ? [...EXPENSE_CATEGORIES] : [...INCOME_CATEGORIES];
 
   const systemPrompt = `You are a financial categorization assistant for Indian SMEs. Given a transaction description and amount, return exactly one category name from this list based on type:
@@ -57,7 +57,7 @@ Return ONLY the category name, nothing else. No explanation.`;
     });
 
     const category = response.trim();
-    return allowedCategories.includes(category as (typeof allowedCategories)[number])
+    return allowedCategories.includes(category)
       ? category
       : "Miscellaneous";
   } catch (error) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import { getMongoDb } from "@/lib/database/clients";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 import { computeTrackerStats } from "@/lib/report";
 import {
   computeCashRunway,
@@ -19,7 +20,7 @@ export async function GET() {
   const user = await getCurrentUserAction();
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-  const workspaceId = user.defaultWorkspaceId ?? "default";
+  const workspaceId = (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
   const db = await getMongoDb();
   const limit = 500;
 

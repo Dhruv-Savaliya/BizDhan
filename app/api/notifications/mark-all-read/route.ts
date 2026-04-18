@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import Notification from "@/lib/models/Notification";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 
 async function ensureMongooseConnection() {
   if (mongoose.connection.readyState >= 1) return;
@@ -19,7 +20,8 @@ export async function POST(request: Request) {
 
     const url = new URL(request.url);
     const workspaceFromQuery = url.searchParams.get("workspaceId") ?? undefined;
-    const workspaceId = user.defaultWorkspaceId ?? workspaceFromQuery ?? "default";
+    const workspaceId =
+      (await resolveActiveWorkspaceIdForUser(user)) ?? workspaceFromQuery ?? "default";
 
     if (!mongoose.Types.ObjectId.isValid(user.id) || !mongoose.Types.ObjectId.isValid(workspaceId)) {
       return NextResponse.json(

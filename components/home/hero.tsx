@@ -2,8 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { motion, useScroll, useTransform, useSpring, useMotionValue, useMotionTemplate } from "framer-motion";
-import { useRef, useState, useEffect } from "react";
+import { motion, useScroll, useTransform, useSpring, useMotionValue } from "framer-motion";
+import { useRef } from "react";
 import { HERO_CONTENT } from "@/constants/home/hero-constants";
 import { ArrowRight, Sparkles, Plus, TrendingUp, PieChart, ShieldCheck } from "lucide-react";
 import type { HomeMagneticButtonProps } from "@/types/home";
@@ -31,7 +31,7 @@ function MagneticButton({ children, className, variant, size, asChild, href }: H
     y.set(0);
   };
 
-  const Component = asChild ? motion.div : Button;
+
 
   return (
     <motion.div
@@ -57,8 +57,6 @@ export function Hero() {
   const dashboardRef = useRef<HTMLDivElement>(null);
   
   // Mouse tracking for 3D dashboard
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
   const rotX = useSpring(useMotionValue(0), { stiffness: 100, damping: 30 });
   const rotY = useSpring(useMotionValue(0), { stiffness: 100, damping: 30 });
 

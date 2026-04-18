@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import { getMongoDb } from "@/lib/database/clients";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 import type { IncomeEntry } from "@/types/income";
 
 const patchSchema = z
@@ -23,8 +24,8 @@ function errorResponse(status: number, message: string) {
   return NextResponse.json({ error: { message } }, { status });
 }
 
-function getWorkspaceId(user: Awaited<ReturnType<typeof getCurrentUserAction>>) {
-  return user?.defaultWorkspaceId ?? "default";
+async function getWorkspaceId(user: NonNullable<Awaited<ReturnType<typeof getCurrentUserAction>>>) {
+  return (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
 }
 
 export async function PATCH(
@@ -42,7 +43,7 @@ export async function PATCH(
     const existing = await db.collection<IncomeEntry>("income_entries").findOne({ id });
     if (!existing) return errorResponse(404, "Income record not found");
 
-    const workspaceId = getWorkspaceId(user);
+    const workspaceId = await getWorkspaceId(user);
     if (existing.userId !== user.id || existing.workspaceId !== workspaceId) {
       return errorResponse(403, "Forbidden");
     }
@@ -105,7 +106,7 @@ export async function DELETE(
     const existing = await db.collection<IncomeEntry>("income_entries").findOne({ id });
     if (!existing) return errorResponse(404, "Income record not found");
 
-    const workspaceId = getWorkspaceId(user);
+    const workspaceId = await getWorkspaceId(user);
     if (existing.userId !== user.id || existing.workspaceId !== workspaceId) {
       return errorResponse(403, "Forbidden");
     }

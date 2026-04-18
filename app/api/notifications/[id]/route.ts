@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import Notification from "@/lib/models/Notification";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 
 async function ensureMongooseConnection() {
   if (mongoose.connection.readyState >= 1) return;
@@ -12,12 +13,13 @@ async function ensureMongooseConnection() {
   await mongoose.connect(uri);
 }
 
-function resolveWorkspaceId(
-  user: Awaited<ReturnType<typeof getCurrentUserAction>>,
+async function resolveWorkspaceId(
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUserAction>>>,
   request: Request
 ) {
   const workspaceFromQuery = new URL(request.url).searchParams.get("workspaceId") ?? undefined;
-  return user?.defaultWorkspaceId ?? workspaceFromQuery ?? "default";
+  const effective = await resolveActiveWorkspaceIdForUser(user);
+  return effective ?? workspaceFromQuery ?? "default";
 }
 
 export async function PATCH(
@@ -33,7 +35,7 @@ export async function PATCH(
       return NextResponse.json({ message: "Invalid notification id" }, { status: 400 });
     }
 
-    const workspaceId = resolveWorkspaceId(user, request);
+    const workspaceId = await resolveWorkspaceId(user, request);
     if (!mongoose.Types.ObjectId.isValid(user.id) || !mongoose.Types.ObjectId.isValid(workspaceId)) {
       return NextResponse.json(
         { message: "Invalid user or workspace identifier" },
@@ -74,7 +76,7 @@ export async function DELETE(
       return NextResponse.json({ message: "Invalid notification id" }, { status: 400 });
     }
 
-    const workspaceId = resolveWorkspaceId(user, request);
+    const workspaceId = await resolveWorkspaceId(user, request);
     if (!mongoose.Types.ObjectId.isValid(user.id) || !mongoose.Types.ObjectId.isValid(workspaceId)) {
       return NextResponse.json(
         { message: "Invalid user or workspace identifier" },

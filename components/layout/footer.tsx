@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { MapPin, Mail, Phone, Sparkles, Send } from "lucide-react";
+import { MapPin, Mail, Sparkles, Send } from "lucide-react";
 import { footerConfig } from "@/constants/layout/footer-constants";
 
 const ease = [0.16, 1, 0.3, 1] as const;

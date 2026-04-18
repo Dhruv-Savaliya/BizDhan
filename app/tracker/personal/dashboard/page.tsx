@@ -1,28 +1,20 @@
 import { redirect } from "next/navigation";
 import { getCurrentUserAction } from "@/app/actions/auth";
+import { TrackerDashboardPage } from "@/components/tracker/dashboard-page";
 
-export default async function TrackerRootPage() {
+export default async function PersonalDashboardPage() {
   const user = await getCurrentUserAction();
-
   if (!user) {
     redirect("/login");
   }
-
   const kinds = user.enabledWorkspaceKinds ?? [];
   if (!kinds.length) {
     redirect("/tracker/no-workspace");
   }
-
-  const hasPersonal = kinds.includes("personal");
-  const hasSme = kinds.includes("sme");
-
-  if (hasPersonal && hasSme) {
-    redirect("/tracker/select-workspace");
-  }
-
-  if (hasSme && !hasPersonal) {
+  if (!kinds.includes("personal")) {
     redirect("/tracker/sme/dashboard");
   }
-
-  redirect("/tracker/personal/dashboard");
+  return (
+    <TrackerDashboardPage workspaceSubtitle="Personal workspace" workspaceKind="personal" />
+  );
 }

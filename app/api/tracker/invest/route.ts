@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getCurrentUserAction } from "@/app/actions/auth";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 import { getMongoDb } from "@/lib/database/clients";
 import type { InvestmentEntry } from "@/types/investment";
 import { createInvestmentEntry, normalizeInvestmentInput } from "@/lib/investments";
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   const user = await getCurrentUserAction();
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-  const workspaceId = user.defaultWorkspaceId ?? "default";
+  const workspaceId = (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
   const db = await getMongoDb();
 
   const url = new URL(request.url);
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const workspaceId = user.defaultWorkspaceId ?? "default";
+  const workspaceId = (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
 
   try {
     const normalized = normalizeInvestmentInput(body ?? {});

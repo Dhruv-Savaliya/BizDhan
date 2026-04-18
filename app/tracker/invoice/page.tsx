@@ -8,22 +8,19 @@ import { useForm, type Resolver } from "react-hook-form";
 import {
   Loader2,
   Plus,
-  FileText,
   Download,
   Inbox,
   RefreshCw,
-  Trash2,
   CircleDollarSign,
   CheckCircle2,
   Clock,
   AlertTriangle,
   CalendarDays,
-  Hash,
-  Send,
   FilePenLine,
+  Send,
   ArrowDownRight,
   ArrowUpRight,
-  StickyNote,
+  type LucideIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -31,7 +28,6 @@ import type { InvoiceBillType, InvoiceEntry, InvoiceStatus } from "@/types/invoi
 import { downloadInvoicePdf } from "@/lib/invoice-pdf";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Form,
@@ -64,7 +60,7 @@ import { TrackerEmptyState } from "@/components/tracker/empty-state";
 /* ── Status Config ── */
 const STATUS_CONFIG: Record<
   InvoiceStatus,
-  { label: string; color: string; bg: string; border: string; dot: string; icon: any }
+  { label: string; color: string; bg: string; border: string; dot: string; icon: LucideIcon }
 > = {
   draft: {
     label: "Draft",
@@ -228,7 +224,7 @@ export default function InvoicePage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [pdfGeneratingId, setPdfGeneratingId] = useState<string | null>(null);
-  
+
   // Sheet & Edit State
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -358,12 +354,12 @@ export default function InvoicePage() {
     try {
       const res = await fetch(`/api/tracker/invoice/${id}`, { method: "DELETE" });
       if (!res.ok) {
-         if (res.status === 404 || res.status === 405) {
-            setItems(prev => prev.filter(i => i.id !== id));
-            toast.success("Invoice deleted");
-            return;
-         }
-         throw new Error("Failed to delete");
+        if (res.status === 404 || res.status === 405) {
+          setItems(prev => prev.filter(i => i.id !== id));
+          toast.success("Invoice deleted");
+          return;
+        }
+        throw new Error("Failed to delete");
       }
       setItems((prev) => prev.filter((it) => it.id !== id));
       toast.success("Invoice deleted");
@@ -412,8 +408,8 @@ export default function InvoicePage() {
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(i => 
-        i.invoiceNumber.toLowerCase().includes(q) || 
+      result = result.filter(i =>
+        i.invoiceNumber.toLowerCase().includes(q) ||
         i.partyName.toLowerCase().includes(q) ||
         (i.notes && i.notes.toLowerCase().includes(q))
       );
@@ -902,7 +898,6 @@ export default function InvoicePage() {
                 {filteredItems.map((it) => {
                   const isGeneratingPdf = pdfGeneratingId === it.id;
                   const isReceivable = it.billType === "receivable";
-                  const config = STATUS_CONFIG[it.status as InvoiceStatus] ?? STATUS_CONFIG.draft;
                   const Icon = isReceivable ? ArrowDownRight : ArrowUpRight;
                   const iconColor = isReceivable ? "text-emerald-500" : "text-rose-500";
                   const iconBg = isReceivable ? "bg-emerald-500/10" : "bg-rose-500/10";
@@ -916,11 +911,10 @@ export default function InvoicePage() {
                       initial="hidden"
                       animate="show"
                       exit="exit"
-                      className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border bg-card/70 backdrop-blur-sm transition-all duration-300 hover:shadow-md ${
-                        editingId === it.id 
-                          ? "border-primary shadow-[0_0_15px_rgba(45,212,191,0.2)] bg-primary/5" 
+                      className={`group flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 rounded-2xl border bg-card/70 backdrop-blur-sm transition-all duration-300 hover:shadow-md ${editingId === it.id
+                          ? "border-primary shadow-[0_0_15px_rgba(45,212,191,0.2)] bg-primary/5"
                           : "border-border/40 hover:bg-card hover:border-border/70 ring-1 ring-inset ring-transparent hover:" + ringClass
-                      }`}
+                        }`}
                     >
                       {/* Left side */}
                       <div className="flex items-start sm:items-center gap-4 min-w-0">
@@ -960,7 +954,7 @@ export default function InvoicePage() {
                             {isReceivable ? "+" : "-"}{it.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
-                        
+
                         {isReceivable && (
                           <Button
                             variant="ghost"
@@ -971,7 +965,7 @@ export default function InvoicePage() {
                               try {
                                 await downloadInvoicePdf(it);
                                 toast.success("PDF generated successfully");
-                              } catch (err) {
+                              } catch {
                                 toast.error("Failed to generate PDF");
                               } finally {
                                 setPdfGeneratingId(null);

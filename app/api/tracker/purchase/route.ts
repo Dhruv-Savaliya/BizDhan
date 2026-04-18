@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import { getMongoDb } from "@/lib/database/clients";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 import type { PurchaseEntry } from "@/types/purchase";
 import {
   createPurchaseEntry,
@@ -16,7 +17,7 @@ export async function DELETE(request: Request) {
   const id = url.searchParams.get("id");
   if (!id) return NextResponse.json({ message: "Missing id" }, { status: 400 });
 
-  const workspaceId = user.defaultWorkspaceId ?? "default";
+  const workspaceId = (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
   const db = await getMongoDb();
   const result = await db.collection("purchase_entries").deleteOne({
     id,
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
   }
   const cursor = url.searchParams.get("cursor");
 
-  const workspaceId = user.defaultWorkspaceId ?? "default";
+  const workspaceId = (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
 
   const db = await getMongoDb();
   const query: {
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const workspaceId = user.defaultWorkspaceId ?? "default";
+  const workspaceId = (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
 
   try {
     const normalized = normalizePurchaseInput(body ?? {});

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import { getMongoDb } from "@/lib/database/clients";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 import { groqChat } from "@/lib/groq";
 import { logger } from "@/lib/logger";
 import { computeTrackerStats } from "@/lib/report";
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Missing GROQ_API_KEY" }, { status: 500 });
     }
 
-    const workspaceId = user.defaultWorkspaceId ?? "default";
+    const workspaceId = (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
     const db = await getMongoDb();
 
     const limit = 300;

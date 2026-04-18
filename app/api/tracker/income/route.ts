@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import { z } from "zod";
 import { getCurrentUserAction } from "@/app/actions/auth";
 import { getMongoDb } from "@/lib/database/clients";
+import { resolveActiveWorkspaceIdForUser } from "@/lib/workspace-for-user";
 import type { IncomeEntry } from "@/types/income";
 import { createIncomeEntry, normalizeIncomeInput } from "@/lib/income";
 import { suggestCategory } from "@/lib/ai/categorize";
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   }
   const cursor = url.searchParams.get("cursor");
 
-  const workspaceId = user.defaultWorkspaceId ?? "default";
+  const workspaceId = (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
 
   const db = await getMongoDb();
   const query: {
@@ -63,7 +64,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const workspaceId = user.defaultWorkspaceId ?? "default";
+  const workspaceId = (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
 
   try {
     const parsed = postBodySchema.safeParse(body ?? {});

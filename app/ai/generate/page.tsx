@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import {
   Loader2,
   Sparkles,
-  ImageIcon,
+
   Download,
   ExternalLink,
   ServerCrash,

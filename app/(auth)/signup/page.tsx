@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+
 import { motion, AnimatePresence } from "framer-motion";
 
 const passwordValidation = new RegExp(
@@ -137,10 +137,12 @@ export default function SignupPage() {
 
       toast.success("Account created successfully!");
       const mode = values.signupMode;
-      if (mode === "sme" || mode === "both") {
-        router.push("/");
+      if (mode === "both") {
+        router.push("/tracker/select-workspace");
+      } else if (mode === "sme") {
+        router.push("/tracker/sme/dashboard");
       } else {
-        router.push("/user");
+        router.push("/tracker/personal/dashboard");
       }
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Signup failed";

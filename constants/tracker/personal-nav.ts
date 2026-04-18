@@ -1,5 +1,5 @@
 export const PERSONAL_TRACKER_NAV = [
-  { href: "/tracker/dashboard", label: "Dashboard", sub: "Overview" as string | null },
+  { href: "/tracker/personal/dashboard", label: "Dashboard", sub: "Overview" as string | null },
   { href: "/tracker/income", label: "Income", sub: null as string | null },
   { href: "/tracker/expense", label: "Expense", sub: null },
   { href: "/tracker/invest", label: "Invest", sub: "Expense − income" },
