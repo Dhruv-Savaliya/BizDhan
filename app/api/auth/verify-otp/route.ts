@@ -3,6 +3,8 @@ import { getDb } from "@/lib/database";
 import { signAuthToken } from "@/lib/jwt";
 import { logger } from "@/lib/logger";
 
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? "unknown";
   try {
