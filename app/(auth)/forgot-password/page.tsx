@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Loader2, Mail, ArrowLeft, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,8 +32,8 @@ export default function ForgotPasswordPage() {
 
       toast.success("Reset code sent! Check your inbox.");
       router.push(`/reset-password?email=${encodeURIComponent(email)}`);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "An error occurred");
     } finally {
       setIsLoading(false);
     }

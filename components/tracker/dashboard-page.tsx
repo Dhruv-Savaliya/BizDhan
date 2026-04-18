@@ -11,14 +11,11 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   FileText,
-  ShoppingCart,
   Wallet,
   CreditCard,
   PiggyBank,
   Plus,
   RefreshCw,
-  Clock,
-  LayoutDashboard,
 } from "lucide-react";
 import {
   AreaChart,
@@ -28,8 +25,6 @@ import {
   Tooltip as ReTooltip,
   ResponsiveContainer,
   CartesianGrid,
-  BarChart,
-  Bar,
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -46,11 +41,6 @@ import { setActiveWorkspaceKindAction } from "@/app/actions/workspace";
    ═══════════════════════════════════════════════════ */
 
 const ease = [0.16, 1, 0.3, 1] as const;
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
-};
 
 const itemVariants = {
   hidden: { opacity: 0, y: 16, scale: 0.98 },
@@ -73,17 +63,6 @@ function formatCurrency(value: number, currency = "INR") {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function formatDate(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat("en-IN", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-  }).format(d);
 }
 
 function timeAgo(iso: string) {
@@ -237,7 +216,6 @@ export function TrackerDashboardPage({
   const [investments, setInvestments] = useState<InvestmentEntry[]>([]);
   const [invoices, setInvoices] = useState<InvoiceEntry[]>([]);
   const [purchases, setPurchases] = useState<PurchaseEntry[]>([]);
-  const [timeFilter, setTimeFilter] = useState<"week" | "month" | "year">("month");
 
   const isSme = workspaceKind === "sme";
 
@@ -268,7 +246,7 @@ export function TrackerDashboardPage({
       } else {
         setInvestments(data[2].data ?? []);
       }
-    } catch (e) {
+    } catch {
       toast.error("Failed to load dashboard data");
     } finally {
       setLoading(false);
@@ -327,7 +305,6 @@ export function TrackerDashboardPage({
         currency,
       };
     } else {
-      const totalInvested = investments.reduce((s, e) => s + (e.amount || 0), 0);
       const netSavings = totalIncome - totalExpenses;
       const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
 
@@ -364,7 +341,7 @@ export function TrackerDashboardPage({
         currency,
       };
     }
-  }, [income, expenses, investments, invoices, purchases, isSme]);
+  }, [income, expenses, purchases, isSme]);
 
   // Combined chart data
   const chartData = useMemo(() => {
@@ -384,13 +361,14 @@ export function TrackerDashboardPage({
       "Dec",
     ];
 
-    const process = (items: any[], dateKey: string, valKey: string, type: "income" | "expenses" | "other") => {
+    const process = (items: readonly object[], dateKey: string, valKey: string, type: "income" | "expenses" | "other") => {
       for (const item of items) {
-        const d = new Date(item[dateKey] || item.created_at);
+        const row = item as Record<string, unknown>;
+        const d = new Date((row[dateKey] as string) || (row.created_at as string));
         if (isNaN(d.getTime())) continue;
         const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
         if (!months[key]) months[key] = { income: 0, expenses: 0, other: 0 };
-        months[key][type] += item[valKey] || 0;
+        months[key][type] += (row[valKey] as number) || 0;
       }
     };
 
@@ -411,7 +389,7 @@ export function TrackerDashboardPage({
         Tertiary: isSme ? vals.income - (vals.expenses + vals.other) : vals.other,
       }))
       .slice(-6);
-  }, [income, expenses, investments, purchases, isSme]);
+  }, [isSme, income, expenses, investments, purchases]);
 
   const activityFeed = useMemo((): ActivityEvent[] => {
     const events: ActivityEvent[] = [];
@@ -462,50 +440,8 @@ export function TrackerDashboardPage({
       );
     }
 
-    return events.sort((a, b) => 0.5 - Math.random()).slice(0, 8);
+    return events.sort(() => 0.5 - Math.random()).slice(0, 8);
   }, [income, expenses, investments, invoices, isSme]);
-
-  // Recent transactions (combined, sorted by date)
-  const recentTransactions = useMemo(() => {
-    type Transaction = {
-      id: string;
-      date: string;
-      description: string;
-      category: string;
-      amount: number;
-      currency: string;
-      type: "income" | "expense";
-    };
-
-    const txns: Transaction[] = [];
-
-    for (const item of income.slice(0, 5)) {
-      txns.push({
-        id: item.id || (item as unknown as Record<string, unknown>)._id as string || `inc-${Math.random()}`,
-        date: item.receivedAt || item.created_at,
-        description: item.source || "Income",
-        category: item.category || "other",
-        amount: item.amount,
-        currency: item.currency || "INR",
-        type: "income",
-      });
-    }
-    for (const item of expenses.slice(0, 5)) {
-      txns.push({
-        id: item.id || (item as unknown as Record<string, unknown>)._id as string || `exp-${Math.random()}`,
-        date: item.spentAt || item.created_at,
-        description: item.merchant || "Expense",
-        category: item.category || "other",
-        amount: item.amount,
-        currency: item.currency || "INR",
-        type: "expense",
-      });
-    }
-
-    return txns
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 7);
-  }, [income, expenses]);
 
   /* ── Greeting ── */
   const greeting = useMemo(() => {
@@ -515,7 +451,6 @@ export function TrackerDashboardPage({
     return "Good evening";
   }, []);
 
-  const hasAnyData = income.length > 0 || expenses.length > 0 || investments.length > 0;
 
   /* ── Render ── */
 
@@ -568,6 +503,9 @@ export function TrackerDashboardPage({
               />
               {isSme ? "Business Performance Overview" : "Personal Wealth & Savings Growth"}
             </p>
+            {workspaceSubtitle ? (
+              <p className="text-xs font-medium text-primary/90 mt-2">{workspaceSubtitle}</p>
+            ) : null}
           </div>
           <div className="flex items-center gap-3">
             <Button
@@ -760,34 +698,16 @@ export function TrackerDashboardPage({
             </div>
           </div>
         </div>
-      </div>
-    </motion.main>
-  );
-}
-                <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
-                  <Activity className="h-8 w-8 opacity-30" />
-                  <p className="text-sm">No recent activity</p>
-                </div>
-              ) : (
-                <div className="space-y-0">
-                  {activityFeed.map((event, i) => (
-                    <ActivityItem key={event.id + i} event={event} index={i} />
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
 
         {/* ── Quick Actions Footer ── */}
         <motion.div
           variants={itemVariants}
           initial="hidden"
           animate="show"
-          className="rounded-2xl glass-dashboard p-5 sm:p-6"
+          className="rounded-3xl glass-dashboard p-6 sm:p-8"
         >
-          <h2 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <h2 className="text-sm font-black text-foreground uppercase tracking-widest mb-6">Quick Actions</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
               { href: "/tracker/income", label: "Add Income", icon: TrendingUp, bg: "bg-emerald-500/10", color: "text-emerald-500" },
               { href: "/tracker/expense", label: "Add Expense", icon: CreditCard, bg: "bg-rose-500/10", color: "text-rose-500" },
@@ -797,12 +717,12 @@ export function TrackerDashboardPage({
               <Link
                 key={action.href}
                 href={action.href}
-                className="flex items-center gap-3 rounded-xl border border-border/30 bg-card/30 p-4 hover:bg-muted/20 transition-all duration-300 group card-hover-glow"
+                className="flex items-center gap-4 rounded-2xl border border-border/20 bg-background/30 p-4 hover:bg-muted/30 transition-all duration-300 group card-hover-glow"
               >
-                <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                  <action.icon className={`h-5 w-5 ${action.color}`} />
+                <div className={`w-12 h-12 rounded-2xl ${action.bg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                  <action.icon className={`h-6 w-6 ${action.color}`} />
                 </div>
-                <span className="text-sm font-semibold text-foreground">{action.label}</span>
+                <span className="text-sm font-bold text-foreground">{action.label}</span>
               </Link>
             ))}
           </div>

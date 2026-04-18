@@ -128,7 +128,11 @@ export default function SignupPage() {
 
       const contentType = res.headers.get("content-type") ?? "";
       const data = contentType.includes("application/json")
-        ? ((await res.json()) as { message?: string })
+        ? ((await res.json()) as {
+            message?: string;
+            requiresVerification?: boolean;
+            userId?: string;
+          })
         : {};
 
       if (!res.ok) {
@@ -137,7 +141,9 @@ export default function SignupPage() {
 
       if (data.requiresVerification) {
         toast.success("Account created! Please verify your email.");
-        router.push(`/verify-otp?userId=${data.userId}&email=${encodeURIComponent(values.email)}`);
+        router.push(
+          `/verify-otp?userId=${encodeURIComponent(data.userId ?? "")}&email=${encodeURIComponent(values.email)}`
+        );
         return;
       }
 

@@ -71,11 +71,10 @@ const RecurringTransactionSchema = new Schema<IRecurringTransaction>({
   createdAt: { type: Date, default: Date.now },
 });
 
-RecurringTransactionSchema.pre('save', function (next) {
+RecurringTransactionSchema.pre('save', async function () {
   if (!this.nextRunDate) {
     this.nextRunDate = calculateNextRun(this.startDate, this.frequency);
   }
-  next();
 });
 
 RecurringTransactionSchema.index({

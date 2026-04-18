@@ -2,7 +2,6 @@
 
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { Loader2, Lock, Eye, EyeOff, ShieldCheck, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,8 +43,8 @@ function ResetPasswordContent() {
 
       toast.success("Password reset successfully! You can now login.");
       router.push("/login");
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "An error occurred");
     } finally {
       setIsLoading(false);
     }

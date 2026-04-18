@@ -73,13 +73,22 @@ export default function LoginPage() {
 
       const contentType = res.headers.get("content-type") ?? "";
       const data = contentType.includes("application/json")
-        ? ((await res.json()) as { message?: string; role?: string })
+        ? ((await res.json()) as { 
+            message?: string; 
+            role?: string; 
+            requiresVerification?: boolean; 
+            userId?: string; 
+            email?: string 
+          })
         : {};
 
       if (!res.ok) {
         if (res.status === 403 && data.requiresVerification) {
           toast.info(data.message);
-          router.push(`/verify-otp?userId=${data.userId}&email=${encodeURIComponent(data.email)}`);
+          const emailParam = data.email ?? values.email;
+          router.push(
+            `/verify-otp?userId=${encodeURIComponent(data.userId ?? "")}&email=${encodeURIComponent(emailParam)}`
+          );
           return;
         }
         throw new Error(data.message || "Login failed");

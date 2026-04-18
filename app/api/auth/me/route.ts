@@ -41,7 +41,7 @@ export async function PATCH(request: Request) {
       "profilePic", "profilePicId"
     ];
 
-    const filteredUpdates: Record<string, any> = {};
+    const filteredUpdates: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (updates[key] !== undefined) {
         filteredUpdates[key] = updates[key];

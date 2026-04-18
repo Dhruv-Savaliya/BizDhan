@@ -195,6 +195,8 @@ export default function ProfilePage() {
         addressLine1: user.addressLine1 || "",
         addressLine2: user.addressLine2 || "",
         postalCode: user.postalCode || "",
+        profilePic: user.profilePic || "",
+        profilePicId: user.profilePicId || "",
       });
     }
     setEditing(false);

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Resolver } from "react-hook-form";
-import { Loader2, Plus, Wallet, Inbox, ScanLine, UploadCloud, RefreshCw } from "lucide-react";
+import { Loader2, Plus, Wallet, Inbox, ScanLine, UploadCloud, RefreshCw, FileText } from "lucide-react";
 
 import type { ExpenseCategory, ExpenseEntry } from "@/types/expense";
 import { Button } from "@/components/ui/button";
@@ -235,11 +235,11 @@ export default function ExpensePage() {
         | { success: false; error?: string };
 
       if (!res.ok || !json.success) {
-        const message =
+        const errorMsg =
           "error" in json && typeof json.error === "string"
             ? json.error
             : "Failed to scan receipt. Please fill manually.";
-        toast.warning("AI Scan failed, but receipt was uploaded. Please fill details manually.");
+        toast.warning(`AI Scan: ${errorMsg}. Please fill details manually.`);
         return;
       }
 

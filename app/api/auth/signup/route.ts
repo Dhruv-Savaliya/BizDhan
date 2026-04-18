@@ -8,7 +8,6 @@ import { getEnabledUserFields } from "@/types/user-schema";
 import type { SignupMode } from "@/types/workspace";
 import { logger } from "@/lib/logger";
 import { createWorkspacesForSignup } from "@/lib/workspaces";
-import { signAuthToken } from "@/lib/jwt";
 
 export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? "unknown";

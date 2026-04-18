@@ -1,4 +1,4 @@
-import type { Db, IndexSpecification } from "mongodb";
+import type { Db, IndexDescription } from "mongodb";
 
 declare global {
   var __bizdhanEnsureIndexesPromise: Promise<void> | undefined;
@@ -12,10 +12,10 @@ const TRACKER_COLLECTIONS = [
   "invoice_entries",
 ] as const;
 
-const trackerIndexSpecs: [IndexSpecification, Record<string, unknown>][] = [
-  [{ userId: 1, workspaceId: 1, createdAt: -1 }, { name: "user_workspace_createdAt_desc" }],
-  [{ userId: 1, workspaceId: 1, category: 1 }, { name: "user_workspace_category" }],
-  [{ workspaceId: 1, date: -1 }, { name: "workspace_date_desc" }],
+const trackerIndexSpecs: IndexDescription[] = [
+  { key: { userId: 1, workspaceId: 1, createdAt: -1 }, name: "user_workspace_createdAt_desc" },
+  { key: { userId: 1, workspaceId: 1, category: 1 }, name: "user_workspace_category" },
+  { key: { workspaceId: 1, date: -1 }, name: "workspace_date_desc" },
 ];
 
 export async function ensureIndexes(db?: Db) {
@@ -29,12 +29,7 @@ export async function ensureIndexes(db?: Db) {
         })());
       for (const collectionName of TRACKER_COLLECTIONS) {
         const collection = activeDb.collection(collectionName);
-        await collection.createIndexes(
-          trackerIndexSpecs.map(([key, options]) => ({
-            key,
-            ...options,
-          }))
-        );
+        await collection.createIndexes(trackerIndexSpecs);
       }
 
       const users = activeDb.collection("users");
