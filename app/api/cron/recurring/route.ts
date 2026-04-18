@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { processRecurringTransactions } from "@/lib/jobs/processRecurring";
+import { runRecurringJobs } from "@/lib/cron/recurring";
 
+/** Manual / legacy trigger; production schedule uses `/api/cron/daily`. */
 export async function GET(request: Request) {
   const secret = request.headers.get("x-cron-secret");
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
@@ -8,7 +9,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    await processRecurringTransactions();
+    await runRecurringJobs();
     return NextResponse.json(
       { success: true, processedAt: new Date() },
       { status: 200 }

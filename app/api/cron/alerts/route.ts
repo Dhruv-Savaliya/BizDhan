@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { checkBudgetAlerts } from "@/lib/jobs/checkAlerts";
+import { runAlertJobs } from "@/lib/cron/alerts";
 
+/** Manual / legacy trigger; production schedule uses `/api/cron/daily`. */
 export async function GET(request: Request) {
   const secret = request.headers.get("x-cron-secret");
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
@@ -8,7 +9,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    await checkBudgetAlerts();
+    await runAlertJobs();
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("Alert cron failed:", error);
