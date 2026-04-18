@@ -1,271 +1,146 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, Suspense } from "react";
-import { Loader2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
-
+import { Loader2, Lock, Eye, EyeOff, ShieldCheck, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
 import { AuthShell } from "@/components/auth/auth-shell";
-
-const otpSchema = z.object({
-  otp: z.string().min(6, { message: "OTP must be 6 characters." }),
-});
-
-const passwordValidation = new RegExp(
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/
-);
-
-const passwordSchema = z
-  .object({
-    password: z
-      .string()
-      .regex(passwordValidation, "Password does not meet requirements."),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
 
 function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
 
-  const [step, setStep] = useState<"otp" | "password">("otp");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [verifiedOtp, setVerifiedOtp] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!email) {
-      toast.error("Missing email information.");
-      router.push("/forgot-password");
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
     }
-  }, [email, router]);
-
-  const otpForm = useForm<z.infer<typeof otpSchema>>({
-    resolver: zodResolver(otpSchema),
-    defaultValues: { otp: "" },
-  });
-
-  const passwordForm = useForm<z.infer<typeof passwordSchema>>({
-    resolver: zodResolver(passwordSchema),
-    defaultValues: { password: "", confirmPassword: "" },
-  });
-
-  async function onOtpSubmit(values: z.infer<typeof otpSchema>) {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp: values.otp }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Verification failed");
-
-      toast.success("Code verified.");
-      setVerifiedOtp(values.otp);
-      setStep("password");
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Verification failed";
-      toast.error(message);
-      otpForm.reset();
-    } finally {
-      setIsLoading(false);
+    if (otp.length < 6) {
+      toast.error("Please enter a valid 6-digit OTP");
+      return;
     }
-  }
 
-  async function onPasswordSubmit(values: z.infer<typeof passwordSchema>) {
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          otp: verifiedOtp,
-          password: values.password,
-        }),
+        body: JSON.stringify({ email, otp, newPassword }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Reset failed");
 
-      toast.success("Password reset successfully. Please log in.");
+      toast.success("Password reset successfully! You can now login.");
       router.push("/login");
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Reset failed";
-      toast.error(message);
-
-      if (message.includes("expired")) {
-        router.push("/forgot-password");
-      }
+    } catch (error: any) {
+      toast.error(error.message);
     } finally {
       setIsLoading(false);
     }
   }
 
-  const motionVariants = {
-    hidden: { opacity: 0, x: -50 },
-    visible: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: 50 },
-  };
-
-  if (!email) return null;
-
   return (
     <AuthShell
-      title={step === "otp" ? "Verify reset code" : "Set a new password"}
-      description={
-        step === "otp"
-          ? `Enter the 6-digit code sent to ${email}.`
-          : "Create a strong password with uppercase, lowercase, number, and symbol."
-      }>
-      <AnimatePresence mode="wait">
-        {step === "otp" && (
-          <motion.div
-            key="otp-step"
-            variants={motionVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            transition={{ duration: 0.3 }}>
-              <Form {...otpForm}>
-                <form
-                  onSubmit={otpForm.handleSubmit(onOtpSubmit)}
-                  className="space-y-6">
-                  <FormField
-                    control={otpForm.control}
-                    name="otp"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col items-center">
-                        <FormLabel className="sr-only">OTP Code</FormLabel>
-                        <FormControl>
-                          <InputOTP
-                            maxLength={6}
-                            {...field}
-                            disabled={isLoading}>
-                            <InputOTPGroup>
-                              {[...Array(6)].map((_, i) => (
-                                <InputOTPSlot key={i} index={i} />
-                              ))}
-                            </InputOTPGroup>
-                          </InputOTP>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isLoading}>
-                    {isLoading ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      "Verify Code"
-                    )}
-                  </Button>
-                </form>
-              </Form>
-          </motion.div>
-        )}
+      title="Create new password"
+      description={`Set a new secure password for ${email || "your account"}.`}
+    >
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">6-Digit Code</label>
+          <div className="relative">
+            <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="000000"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className="pl-11 h-14 rounded-2xl bg-muted/50 border-none focus-visible:ring-2 focus-visible:ring-primary font-bold tracking-widest"
+              disabled={isLoading}
+              required
+            />
+          </div>
+        </div>
 
-        {step === "password" && (
-          <motion.div
-            key="password-step"
-            variants={motionVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            transition={{ duration: 0.3 }}>
-              <Form {...passwordForm}>
-                <form
-                  onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}
-                  className="space-y-4">
-                  <FormField
-                    control={passwordForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>New Password</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="••••••••"
-                            {...field}
-                            disabled={isLoading}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={passwordForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Confirm New Password</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="password"
-                            placeholder="••••••••"
-                            {...field}
-                            disabled={isLoading}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isLoading}>
-                    {isLoading ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      "Reset Password"
-                    )}
-                  </Button>
-                </form>
-              </Form>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <div className="space-y-2">
+          <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">New Password</label>
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="pl-11 pr-11 h-14 rounded-2xl bg-muted/50 border-none focus-visible:ring-2 focus-visible:ring-primary"
+              disabled={isLoading}
+              required
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</label>
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="pl-11 h-14 rounded-2xl bg-muted/50 border-none focus-visible:ring-2 focus-visible:ring-primary"
+              disabled={isLoading}
+              required
+            />
+          </div>
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-lg shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+          disabled={isLoading || !otp || !newPassword || !confirmPassword}
+        >
+          {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Reset Password"}
+        </Button>
+
+        <Button
+          variant="ghost"
+          className="w-full text-muted-foreground gap-2"
+          onClick={() => router.push("/login")}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Login
+        </Button>
+      </form>
     </AuthShell>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen">
-      <Suspense fallback={<div className="section-shell py-20"><div className="h-72 animate-pulse rounded-2xl bg-muted" /></div>}>
-        <ResetPasswordContent />
-      </Suspense>
-    </div>
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    }>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

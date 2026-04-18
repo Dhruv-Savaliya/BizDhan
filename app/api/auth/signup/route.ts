@@ -53,8 +53,10 @@ export async function POST(request: Request) {
 
     const nowIso = new Date().toISOString();
     const normalizedSignupMode: SignupMode = signupMode ?? "personal";
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
-    const newUser: Omit<User, "otp" | "otpExpires"> = {
+    const newUser: User = {
       id: uuidv4(),
       fullName,
       email: email.toLowerCase(),
@@ -63,6 +65,9 @@ export async function POST(request: Request) {
       signupMode: normalizedSignupMode,
       created_at: nowIso,
       updated_at: nowIso,
+      is_active: false,
+      otp,
+      otpExpires,
       ...extras,
     };
 
@@ -88,25 +93,22 @@ export async function POST(request: Request) {
       defaultWorkspaceId: workspaceResult.defaultWorkspaceId,
     });
 
-    const token = await signAuthToken({
-      userId: createdUser.id,
-      email: createdUser.email,
-      role: createdUser.role,
-    });
+    try {
+      const { sendOTPEmail } = await import("@/lib/email");
+      await sendOTPEmail(createdUser.email, otp, "Verify your account");
+    } catch (err) {
+      logger.error("Signup email error", { error: err });
+      // We still return 201 because user is created, but maybe inform them?
+    }
 
-    const response = NextResponse.json(
-      { message: "Signup successful", role: createdUser.role },
+    return NextResponse.json(
+      { 
+        message: "Account created! Please verify your email with the OTP sent to you.", 
+        userId: createdUser.id,
+        requiresVerification: true 
+      },
       { status: 201 }
     );
-    response.cookies.set("auth_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 86400,
-      path: "/",
-    });
-
-    return response;
   } catch (err: unknown) {
     logger.error("Unhandled error", {
       requestId,

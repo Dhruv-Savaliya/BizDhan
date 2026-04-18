@@ -35,6 +35,18 @@ export async function POST(request: Request) {
       );
     }
 
+    if (user.is_active === false) {
+      return NextResponse.json(
+        { 
+          message: "Account not verified. Please verify your email.", 
+          requiresVerification: true,
+          userId: user.id,
+          email: user.email 
+        },
+        { status: 403 }
+      );
+    }
+
     const token = await signAuthToken({
       userId: user.id,
       email: user.email,

@@ -41,6 +41,8 @@ const schema = z.object({
   merchant: z.string().min(1),
   spentAt: z.string().optional(),
   notes: z.string().optional(),
+  receiptUrl: z.string().optional(),
+  receiptId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -203,12 +205,29 @@ export default function ExpensePage() {
     setOcrModelUsed(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", selectedFile);
+      uploadFormData.append("folder", "receipts");
+
+      // Step 1: Upload to Cloudinary
+      const uploadRes = await fetch("/api/upload", {
+        method: "POST",
+        body: uploadFormData,
+      });
+      const uploadJson = await uploadRes.json();
+      
+      if (uploadRes.ok) {
+        form.setValue("receiptUrl", uploadJson.url);
+        form.setValue("receiptId", uploadJson.publicId);
+      }
+
+      // Step 2: Run OCR
+      const ocrFormData = new FormData();
+      ocrFormData.append("file", selectedFile);
 
       const res = await fetch("/api/tracker/ocr", {
         method: "POST",
-        body: formData,
+        body: ocrFormData,
       });
 
       const json = (await res.json()) as
@@ -220,7 +239,8 @@ export default function ExpensePage() {
           "error" in json && typeof json.error === "string"
             ? json.error
             : "Failed to scan receipt. Please fill manually.";
-        throw new Error(message);
+        toast.warning("AI Scan failed, but receipt was uploaded. Please fill details manually.");
+        return;
       }
 
       const scanned = json.data;
@@ -249,9 +269,9 @@ export default function ExpensePage() {
         (json.modelUsed && typeof json.modelUsed === "string" ? json.modelUsed : null);
       setOcrModelUsed(modelUsed as OcrModelUsed | null);
 
-      toast.success("Receipt scanned! Please review the details.");
+      toast.success("Receipt scanned and uploaded! Please review.");
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to scan receipt";
+      const message = error instanceof Error ? error.message : "Failed to process receipt";
       toast.error(message);
     } finally {
       setScanningReceipt(false);
@@ -306,6 +326,8 @@ export default function ExpensePage() {
         merchant: "",
         spentAt: "",
         notes: "",
+        receiptUrl: "",
+        receiptId: "",
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to save expense";
@@ -343,6 +365,8 @@ export default function ExpensePage() {
       merchant: item.merchant,
       spentAt: item.spentAt ? new Date(item.spentAt).toISOString().slice(0, 16) : "",
       notes: item.notes || "",
+      receiptUrl: item.receiptUrl || "",
+      receiptId: item.receiptId || "",
     });
     setActiveTab("add");
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -744,12 +768,23 @@ export default function ExpensePage() {
                           </div>
                         </div>
                         
-                        <div className="flex items-center justify-between sm:justify-end gap-6 sm:w-auto w-full pl-14 sm:pl-0 border-t sm:border-0 pt-3 sm:pt-0 border-border/50">
+                        <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-6 sm:w-auto w-full pl-14 sm:pl-0 border-t sm:border-0 pt-3 sm:pt-0 border-border/50">
+                          {it.receiptUrl && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/5 shrink-0"
+                              onClick={() => window.open(it.receiptUrl, "_blank")}
+                              title="View Receipt"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                          )}
                           {it.notes ? (
-                            <div className="text-xs text-muted-foreground/70 truncate max-w-[150px] italic hidden sm:block">
+                            <div className="text-xs text-muted-foreground/70 truncate max-w-[120px] italic hidden lg:block">
                               &ldquo;{it.notes}&rdquo;
                             </div>
-                          ) : <div className="hidden sm:block w-[150px]" />}
+                          ) : <div className="hidden lg:block w-[120px]" />}
                           <div className="text-right shrink-0">
                             <span className="text-xs text-muted-foreground font-medium mr-1.5">{it.currency}</span>
                             <span className="font-bold text-lg text-foreground tracking-tight whitespace-nowrap">

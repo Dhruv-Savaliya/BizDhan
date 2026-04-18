@@ -1,62 +1,40 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { toast } from "sonner";
-
+import { Loader2, Mail, ArrowLeft, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { AuthShell } from "@/components/auth/auth-shell";
 
-const formSchema = z.object({
-  email: z.string().email("Please enter a valid email address."),
-});
-
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      email: "",
-    },
-  });
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email) return;
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify({ email }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.message || "Something went wrong");
+        const data = await res.json();
+        throw new Error(data.message || "Failed to send reset code");
       }
 
-      toast.success(data.message);
-
-      router.push(`/reset-password?email=${encodeURIComponent(values.email)}`);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Something went wrong";
-      toast.error(message);
+      toast.success("Reset code sent! Check your inbox.");
+      router.push(`/reset-password?email=${encodeURIComponent(email)}`);
+    } catch (error: any) {
+      toast.error(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -65,34 +43,48 @@ export default function ForgotPasswordPage() {
   return (
     <AuthShell
       title="Forgot password?"
-      description="Enter your email and we will send a secure reset code."
-      sideNote="You can reset your password in under a minute.">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                  <Input placeholder="john@example.com" type="email" {...field} disabled={isLoading} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Send reset code"}
-          </Button>
-        </form>
-      </Form>
-      <div className="mt-4 text-center text-sm text-muted-foreground">
-        Remember your password?{" "}
-        <Link href="/login" className="text-primary hover:underline">
-          Log in
-        </Link>
+      description="No worries, we'll send you a 6-digit code to reset your password."
+    >
+      <div className="flex flex-col items-center justify-center mb-8">
+        <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+          <KeyRound className="w-8 h-8 text-primary" />
+        </div>
       </div>
+
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground ml-1">Email Address</label>
+          <div className="relative">
+            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="email"
+              placeholder="name@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="pl-11 h-14 rounded-2xl bg-muted/50 border-none focus-visible:ring-2 focus-visible:ring-primary"
+              disabled={isLoading}
+              required
+            />
+          </div>
+        </div>
+
+        <Button
+          type="submit"
+          className="w-full h-14 rounded-2xl bg-primary text-primary-foreground font-bold text-lg shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+          disabled={isLoading || !email}
+        >
+          {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Send Reset Code"}
+        </Button>
+
+        <Button
+          variant="ghost"
+          className="w-full text-muted-foreground gap-2"
+          onClick={() => router.push("/login")}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Login
+        </Button>
+      </form>
     </AuthShell>
   );
 }

@@ -135,6 +135,12 @@ export default function SignupPage() {
         throw new Error(data.message || "Signup failed");
       }
 
+      if (data.requiresVerification) {
+        toast.success("Account created! Please verify your email.");
+        router.push(`/verify-otp?userId=${data.userId}&email=${encodeURIComponent(values.email)}`);
+        return;
+      }
+
       toast.success("Account created successfully!");
       const mode = values.signupMode;
       if (mode === "both") {

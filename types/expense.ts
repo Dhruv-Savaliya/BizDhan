@@ -23,6 +23,8 @@ export interface ExpenseEntry {
   category: ExpenseCategory;
   merchant: string;
   spentAt: string;
+  receiptUrl?: string;
+  receiptId?: string;
   notes?: string;
   created_at: string;
   updated_at: string;

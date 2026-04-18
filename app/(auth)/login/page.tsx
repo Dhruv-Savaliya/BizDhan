@@ -77,6 +77,11 @@ export default function LoginPage() {
         : {};
 
       if (!res.ok) {
+        if (res.status === 403 && data.requiresVerification) {
+          toast.info(data.message);
+          router.push(`/verify-otp?userId=${data.userId}&email=${encodeURIComponent(data.email)}`);
+          return;
+        }
         throw new Error(data.message || "Login failed");
       }
 

@@ -34,6 +34,7 @@ type UserProfile = {
   gender?: string;
   bio?: string;
   profilePic?: string;
+  profilePicId?: string;
   username?: string;
   dateOfBirth?: string;
   city?: string;
@@ -70,6 +71,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Editable fields
   const [formData, setFormData] = useState({
@@ -83,6 +85,8 @@ export default function ProfilePage() {
     addressLine1: "",
     addressLine2: "",
     postalCode: "",
+    profilePic: "",
+    profilePicId: "",
   });
 
   const loadProfile = useCallback(async () => {
@@ -103,6 +107,8 @@ export default function ProfilePage() {
           addressLine1: json.user.addressLine1 || "",
           addressLine2: json.user.addressLine2 || "",
           postalCode: json.user.postalCode || "",
+          profilePic: json.user.profilePic || "",
+          profilePicId: json.user.profilePicId || "",
         });
       }
     } catch {
@@ -115,6 +121,43 @@ export default function ProfilePage() {
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("File size too large (max 2MB)");
+      return;
+    }
+
+    setUploading(true);
+    const uploadData = new FormData();
+    uploadData.append("file", file);
+    uploadData.append("folder", "profiles");
+
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: uploadData,
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFormData((prev) => ({
+          ...prev,
+          profilePic: data.url,
+          profilePicId: data.publicId,
+        }));
+        toast.success("Image uploaded. Save to apply changes.");
+      } else {
+        toast.error(data.message || "Upload failed");
+      }
+    } catch {
+      toast.error("Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -157,7 +200,7 @@ export default function ProfilePage() {
     setEditing(false);
   };
 
-  const initials = (user?.fullName || user?.name || "U")
+  const initials = (formData.fullName || user?.name || "U")
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -226,11 +269,15 @@ export default function ProfilePage() {
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving}
+                disabled={saving || uploading}
                 size="sm"
                 className="rounded-xl gap-2 bg-primary hover:bg-primary/90"
               >
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                {saving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Save className="h-3.5 w-3.5" />
+                )}
                 Save
               </Button>
             </div>
@@ -238,36 +285,48 @@ export default function ProfilePage() {
         </motion.div>
 
         {/* ── Profile Card ── */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="space-y-5"
-        >
+        <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-5">
           {/* Avatar + Basic Info */}
-          <motion.div
-            variants={itemVariants}
-            className="rounded-2xl glass-dashboard p-6 sm:p-8"
-          >
+          <motion.div variants={itemVariants} className="rounded-2xl glass-dashboard p-6 sm:p-8">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
               {/* Avatar */}
-              <div className="relative">
-                {user.profilePic ? (
-                  <div className="w-20 h-20 relative rounded-2xl overflow-hidden border-2 border-primary/20">
+              <div className="relative group">
+                {formData.profilePic ? (
+                  <div className="w-24 h-24 relative rounded-2xl overflow-hidden border-2 border-primary/20">
                     <Image
-                      src={user.profilePic}
-                      alt={user.fullName || "Profile"}
+                      src={formData.profilePic}
+                      alt={formData.fullName || "Profile"}
                       fill
                       className="object-cover"
                     />
                   </div>
                 ) : (
-                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/10 flex items-center justify-center">
-                    <span className="text-2xl font-black text-primary">{initials}</span>
+                  <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/10 flex items-center justify-center">
+                    <span className="text-3xl font-black text-primary">{initials}</span>
                   </div>
                 )}
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-lg bg-emerald-500 border-2 border-background flex items-center justify-center">
-                  <Shield className="h-3 w-3 text-white" />
+
+                {editing && (
+                  <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                    {uploading ? (
+                      <Loader2 className="h-6 w-6 text-white animate-spin" />
+                    ) : (
+                      <label className="cursor-pointer p-2">
+                        <Edit3 className="h-6 w-6 text-white" />
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleFileChange}
+                          disabled={uploading}
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
+
+                <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-lg bg-emerald-500 border-2 border-background flex items-center justify-center shadow-lg">
+                  <Shield className="h-4 w-4 text-white" />
                 </div>
               </div>
 
@@ -278,11 +337,13 @@ export default function ProfilePage() {
                     type="text"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="text-xl font-bold text-foreground bg-transparent border-b border-primary/40 focus:border-primary outline-none pb-1 w-full"
+                    className="text-2xl font-black text-foreground bg-transparent border-b-2 border-primary/40 focus:border-primary outline-none pb-1 w-full"
                     placeholder="Your full name"
                   />
                 ) : (
-                  <h2 className="text-xl font-bold text-foreground">{user.fullName || user.name}</h2>
+                  <h2 className="text-2xl font-black text-foreground">
+                    {user.fullName || user.name}
+                  </h2>
                 )}
                 <div className="flex items-center gap-2 justify-center sm:justify-start text-sm text-muted-foreground">
                   <Mail className="h-3.5 w-3.5" />

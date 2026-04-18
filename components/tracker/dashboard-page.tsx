@@ -36,6 +36,8 @@ import Link from "next/link";
 import type { IncomeEntry } from "@/types/income";
 import type { ExpenseEntry } from "@/types/expense";
 import type { InvestmentEntry } from "@/types/investment";
+import type { InvoiceEntry } from "@/types/invoice";
+import type { PurchaseEntry } from "@/types/purchase";
 import type { WorkspaceKind } from "@/types/workspace";
 import { setActiveWorkspaceKindAction } from "@/app/actions/workspace";
 
@@ -224,7 +226,7 @@ function ActivityItem({ event, index }: { event: ActivityEvent; index: number })
 
 export function TrackerDashboardPage({
   workspaceSubtitle,
-  workspaceKind,
+  workspaceKind = "personal",
 }: {
   workspaceSubtitle?: string;
   workspaceKind?: WorkspaceKind;
@@ -233,38 +235,45 @@ export function TrackerDashboardPage({
   const [income, setIncome] = useState<IncomeEntry[]>([]);
   const [expenses, setExpenses] = useState<ExpenseEntry[]>([]);
   const [investments, setInvestments] = useState<InvestmentEntry[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceEntry[]>([]);
+  const [purchases, setPurchases] = useState<PurchaseEntry[]>([]);
   const [timeFilter, setTimeFilter] = useState<"week" | "month" | "year">("month");
+
+  const isSme = workspaceKind === "sme";
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [incomeRes, expenseRes, investRes] = await Promise.all([
+      const endpoints = [
         fetch("/api/tracker/income?limit=50"),
         fetch("/api/tracker/expense?limit=50"),
-        fetch("/api/tracker/invest?limit=50"),
-      ]);
+      ];
 
-      if (!incomeRes.ok || !expenseRes.ok || !investRes.ok) {
-        throw new Error("Failed to load data from one or more endpoints");
+      if (isSme) {
+        endpoints.push(fetch("/api/tracker/invoice?limit=50"));
+        endpoints.push(fetch("/api/tracker/purchase?limit=50"));
+      } else {
+        endpoints.push(fetch("/api/tracker/invest?limit=50"));
       }
 
-      const [incomeJson, expenseJson, investJson] = await Promise.all([
-        incomeRes.json(),
-        expenseRes.json(),
-        investRes.json(),
-      ]);
+      const responses = await Promise.all(endpoints);
+      const data = await Promise.all(responses.map((r) => r.json()));
 
-      // API returns { data: [...], nextCursor, hasMore }
-      setIncome(incomeJson.data ?? []);
-      setExpenses(expenseJson.data ?? []);
-      setInvestments(investJson.data ?? []);
+      setIncome(data[0].data ?? []);
+      setExpenses(data[1].data ?? []);
+
+      if (isSme) {
+        setInvoices(data[2].data ?? []);
+        setPurchases(data[3].data ?? []);
+      } else {
+        setInvestments(data[2].data ?? []);
+      }
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Failed to load dashboard";
-      toast.error(message);
+      toast.error("Failed to load dashboard data");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isSme]);
 
   useEffect(() => {
     void loadDashboard();
@@ -275,98 +284,186 @@ export function TrackerDashboardPage({
     void setActiveWorkspaceKindAction(workspaceKind);
   }, [workspaceKind]);
 
-  /* ── Derived Data ── */
+  const stats = useMemo(() => {
+    const currency = income[0]?.currency || "INR";
+    const totalIncome = income.reduce((s, e) => s + (e.amount || 0), 0);
+    const totalExpenses = expenses.reduce((s, e) => s + (e.amount || 0), 0);
 
-  const totals = useMemo(() => {
-    const currency = income[0]?.currency ?? expenses[0]?.currency ?? "INR";
-    const totalIncome = income.reduce((s, e) => s + (e.amount ?? 0), 0);
-    const totalExpenses = expenses.reduce((s, e) => s + (e.amount ?? 0), 0);
-    const totalInvestments = investments.reduce((s, e) => s + (e.amount ?? 0), 0);
-    return {
-      income: totalIncome,
-      expenses: totalExpenses,
-      investments: totalInvestments,
-      net: totalIncome - totalExpenses,
-      currency,
-    };
-  }, [income, expenses, investments]);
+    if (isSme) {
+      const totalPurchases = purchases.reduce((s, e) => s + (e.amount || 0), 0);
+      const netProfit = totalIncome - totalExpenses - totalPurchases;
+      const margin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
 
+      return {
+        primary: {
+          label: "Gross Revenue",
+          value: totalIncome,
+          icon: DollarSign,
+          color: "text-emerald-500",
+          bg: "bg-emerald-500/10",
+        },
+        secondary: {
+          label: "Operating Costs",
+          value: totalExpenses + totalPurchases,
+          icon: TrendingDown,
+          color: "text-rose-500",
+          bg: "bg-rose-500/10",
+        },
+        tertiary: {
+          label: "Net Profit",
+          value: netProfit,
+          icon: Activity,
+          color: "text-indigo-500",
+          bg: "bg-indigo-500/10",
+        },
+        quaternary: {
+          label: "Profit Margin",
+          value: `${margin.toFixed(1)}%`,
+          isRaw: true,
+          icon: TrendingUp,
+          color: "text-amber-500",
+          bg: "bg-amber-500/10",
+        },
+        currency,
+      };
+    } else {
+      const totalInvested = investments.reduce((s, e) => s + (e.amount || 0), 0);
+      const netSavings = totalIncome - totalExpenses;
+      const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
 
-  // Chart data — monthly aggregation
-  const chartData = useMemo(() => {
-    const months: Record<string, { income: number; expenses: number }> = {};
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-    for (const item of income) {
-      const d = new Date(item.receivedAt);
-      if (Number.isNaN(d.getTime())) continue;
-      const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-      if (!months[key]) months[key] = { income: 0, expenses: 0 };
-      months[key].income += item.amount;
+      return {
+        primary: {
+          label: "Total Income",
+          value: totalIncome,
+          icon: Wallet,
+          color: "text-emerald-500",
+          bg: "bg-emerald-500/10",
+        },
+        secondary: {
+          label: "Total Expenses",
+          value: totalExpenses,
+          icon: CreditCard,
+          color: "text-rose-500",
+          bg: "bg-rose-500/10",
+        },
+        tertiary: {
+          label: "Net Savings",
+          value: netSavings,
+          icon: PiggyBank,
+          color: "text-blue-500",
+          bg: "bg-blue-500/10",
+        },
+        quaternary: {
+          label: "Savings Rate",
+          value: `${savingsRate.toFixed(1)}%`,
+          isRaw: true,
+          icon: Activity,
+          color: "text-violet-500",
+          bg: "bg-violet-500/10",
+        },
+        currency,
+      };
     }
-    for (const item of expenses) {
-      const d = new Date(item.spentAt);
-      if (Number.isNaN(d.getTime())) continue;
-      const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-      if (!months[key]) months[key] = { income: 0, expenses: 0 };
-      months[key].expenses += item.amount;
+  }, [income, expenses, investments, invoices, purchases, isSme]);
+
+  // Combined chart data
+  const chartData = useMemo(() => {
+    const months: Record<string, { income: number; expenses: number; other: number }> = {};
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
+    const process = (items: any[], dateKey: string, valKey: string, type: "income" | "expenses" | "other") => {
+      for (const item of items) {
+        const d = new Date(item[dateKey] || item.created_at);
+        if (isNaN(d.getTime())) continue;
+        const key = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+        if (!months[key]) months[key] = { income: 0, expenses: 0, other: 0 };
+        months[key][type] += item[valKey] || 0;
+      }
+    };
+
+    process(income, "receivedAt", "amount", "income");
+    process(expenses, "spentAt", "amount", "expenses");
+    if (isSme) {
+      process(purchases, "purchasedAt", "amount", "other"); // Purchases count as cost
+    } else {
+      process(investments, "investedAt", "amount", "other"); // Investments count as growth
     }
 
     return Object.entries(months)
-      .map(([name, vals]) => ({ name: name.split(" ")[0], Income: vals.income, Expenses: vals.expenses }))
+      .sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime())
+      .map(([name, vals]) => ({
+        name: name.split(" ")[0],
+        Primary: vals.income,
+        Secondary: isSme ? vals.expenses + vals.other : vals.expenses,
+        Tertiary: isSme ? vals.income - (vals.expenses + vals.other) : vals.other,
+      }))
       .slice(-6);
-  }, [income, expenses]);
+  }, [income, expenses, investments, purchases, isSme]);
 
-  // Category breakdown for expenses
-  const categoryData = useMemo(() => {
-    const cats: Record<string, number> = {};
-    for (const item of expenses) {
-      const key = (item.category || "other").replace(/_/g, " ");
-      cats[key] = (cats[key] ?? 0) + item.amount;
-    }
-    return Object.entries(cats)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([name, amount]) => ({ name: name.charAt(0).toUpperCase() + name.slice(1), amount }));
-  }, [expenses]);
-
-  // Recent activity feed — merge all entries sorted by date
   const activityFeed = useMemo((): ActivityEvent[] => {
     const events: ActivityEvent[] = [];
 
-    for (const item of income.slice(0, 5)) {
+    income.slice(0, 3).forEach((item) =>
       events.push({
-        id: item.id || (item as unknown as Record<string, unknown>)._id as string || `inc-${Math.random()}`,
+        id: `inc-${item.id}`,
         type: "income",
-        title: "Payment received",
-        subtitle: item.source || item.category || "Income",
+        title: isSme ? "Client Payment" : "Income Received",
+        subtitle: item.source || "General",
         amount: `+${formatCurrency(item.amount, item.currency)}`,
-        timestamp: timeAgo(item.receivedAt || item.created_at),
-      });
-    }
-    for (const item of expenses.slice(0, 5)) {
+        timestamp: timeAgo(item.receivedAt),
+      })
+    );
+
+    expenses.slice(0, 3).forEach((item) =>
       events.push({
-        id: item.id || (item as unknown as Record<string, unknown>)._id as string || `exp-${Math.random()}`,
+        id: `exp-${item.id}`,
         type: "expense",
-        title: "Expense added",
-        subtitle: item.merchant || item.category || "Expense",
+        title: "Expense Recorded",
+        subtitle: item.merchant || item.category || "General",
         amount: `-${formatCurrency(item.amount, item.currency)}`,
-        timestamp: timeAgo(item.spentAt || item.created_at),
-      });
-    }
-    for (const item of investments.slice(0, 3)) {
-      events.push({
-        id: item.id || (item as unknown as Record<string, unknown>)._id as string || `inv-${Math.random()}`,
-        type: "investment",
-        title: "Investment made",
-        subtitle: item.assetName || item.type || "Investment",
-        amount: formatCurrency(item.amount, item.currency),
-        timestamp: timeAgo(item.investedAt || item.created_at),
-      });
+        timestamp: timeAgo(item.spentAt),
+      })
+    );
+
+    if (isSme) {
+      invoices.slice(0, 2).forEach((item) =>
+        events.push({
+          id: `inv-${item.id}`,
+          type: "income",
+          title: `Invoice ${item.status}`,
+          subtitle: item.partyName,
+          amount: formatCurrency(item.amount, item.currency),
+          timestamp: timeAgo(item.issuedAt),
+        })
+      );
+    } else {
+      investments.slice(0, 2).forEach((item) =>
+        events.push({
+          id: `invest-${item.id}`,
+          type: "investment",
+          title: "Investment Added",
+          subtitle: item.assetName,
+          amount: formatCurrency(item.amount, item.currency),
+          timestamp: timeAgo(item.investedAt),
+        })
+      );
     }
 
-    return events.slice(0, 8);
-  }, [income, expenses, investments]);
+    return events.sort((a, b) => 0.5 - Math.random()).slice(0, 8);
+  }, [income, expenses, investments, invoices, isSme]);
 
   // Recent transactions (combined, sorted by date)
   const recentTransactions = useMemo(() => {
@@ -454,363 +551,219 @@ export function TrackerDashboardPage({
     <motion.main
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
-      className="pb-12 pt-2"
+      className={`pb-12 pt-2 ${isSme ? "theme-sme" : "theme-personal"}`}
     >
-      <div className="mx-auto w-full max-w-6xl space-y-6 sm:space-y-8">
+      <div className="mx-auto w-full max-w-6xl space-y-8 sm:space-y-10">
         {/* ── Header ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease }}
-          className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-1"
-        >
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 px-1">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              {greeting} 👋
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground flex items-center gap-3">
+              {greeting} <span className="animate-wave origin-bottom-right inline-block">👋</span>
             </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Here&apos;s what&apos;s happening with your finances today.
-              {workspaceSubtitle ? (
-                <span className="block mt-1 text-xs font-medium text-primary/90">
-                  {workspaceSubtitle}
-                </span>
-              ) : null}
+            <p className="text-muted-foreground font-medium mt-2 flex items-center gap-2">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isSme ? "bg-indigo-500" : "bg-emerald-500"
+                } animate-pulse`}
+              />
+              {isSme ? "Business Performance Overview" : "Personal Wealth & Savings Growth"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => void loadDashboard()}
-              disabled={loading}
-              className="rounded-xl border-border/60 gap-2 text-muted-foreground hover:text-foreground shrink-0"
+              className="rounded-2xl border-border/40 bg-background/50 backdrop-blur-md gap-2 h-11 px-5 font-bold hover:bg-muted/50 transition-all"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
             <Button
               asChild
               size="sm"
-              className="rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shadow-md"
+              className={`rounded-2xl ${
+                isSme ? "bg-indigo-600 hover:bg-indigo-700" : "bg-emerald-600 hover:bg-emerald-700"
+              } text-white gap-2 h-11 px-6 font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]`}
             >
-              <Link href="/tracker/income">
-                <Plus className="h-3.5 w-3.5" />
-                Add Entry
+              <Link href={isSme ? "/tracker/invoice" : "/tracker/income"}>
+                <Plus className="h-4 w-4" />
+                {isSme ? "Create Invoice" : "Add Income"}
               </Link>
             </Button>
           </div>
-        </motion.div>
+        </div>
 
         {/* ── KPI Cards ── */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
-        >
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <KpiCard
-            title="Total Income"
-            value={formatCurrency(totals.income, totals.currency)}
-            change={`${income.length} entries`}
-            changeType={totals.income > 0 ? "up" : "neutral"}
-            icon={DollarSign}
-            iconBg="bg-emerald-500/10"
-            iconColor="text-emerald-500"
+            title={stats.primary.label}
+            value={formatCurrency(stats.primary.value as number, stats.currency)}
+            change="Target 100%"
+            changeType="neutral"
+            icon={stats.primary.icon}
+            iconBg={stats.primary.bg}
+            iconColor={stats.primary.color}
           />
           <KpiCard
-            title="Total Expenses"
-            value={formatCurrency(totals.expenses, totals.currency)}
-            change={`${expenses.length} entries`}
-            changeType={expenses.length > 0 ? "down" : "neutral"}
-            icon={CreditCard}
-            iconBg="bg-rose-500/10"
-            iconColor="text-rose-500"
+            title={stats.secondary.label}
+            value={formatCurrency(stats.secondary.value as number, stats.currency)}
+            change="Actual"
+            changeType="neutral"
+            icon={stats.secondary.icon}
+            iconBg={stats.secondary.bg}
+            iconColor={stats.secondary.color}
           />
           <KpiCard
-            title="Net Balance"
-            value={formatCurrency(totals.net, totals.currency)}
-            change={totals.net >= 0 ? "Positive" : "Negative"}
-            changeType={totals.net >= 0 ? "up" : "down"}
-            icon={Activity}
-            iconBg="bg-blue-500/10"
-            iconColor="text-blue-500"
+            title={stats.tertiary.label}
+            value={formatCurrency(stats.tertiary.value as number, stats.currency)}
+            change="Net"
+            changeType={(stats.tertiary.value as number) >= 0 ? "up" : "down"}
+            icon={stats.tertiary.icon}
+            iconBg={stats.tertiary.bg}
+            iconColor={stats.tertiary.color}
           />
           <KpiCard
-            title="Investments"
-            value={formatCurrency(totals.investments, totals.currency)}
-            change={`${investments.length} entries`}
-            changeType={investments.length > 0 ? "up" : "neutral"}
-            icon={PiggyBank}
-            iconBg="bg-violet-500/10"
-            iconColor="text-violet-500"
+            title={stats.quaternary.label}
+            value={stats.quaternary.value as string}
+            change="Trend"
+            changeType="up"
+            icon={stats.quaternary.icon}
+            iconBg={stats.quaternary.bg}
+            iconColor={stats.quaternary.color}
           />
-        </motion.div>
+        </div>
 
-        {/* ── Empty State ── */}
-        {!hasAnyData && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl glass-dashboard p-10 sm:p-14 text-center"
-          >
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">
-              <LayoutDashboard className="h-8 w-8 text-primary" />
-            </div>
-            <h2 className="text-lg font-bold text-foreground mb-2">No data yet</h2>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
-              Start by adding your first income or expense entry. Your dashboard will automatically populate with charts, analytics, and insights.
-            </p>
-            <div className="flex items-center justify-center gap-3">
-              <Button asChild className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
-                <Link href="/tracker/income">
-                  <TrendingUp className="h-4 w-4" />
-                  Add Income
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="rounded-xl gap-2">
-                <Link href="/tracker/expense">
-                  <TrendingDown className="h-4 w-4" />
-                  Add Expense
-                </Link>
-              </Button>
-            </div>
-          </motion.div>
-        )}
+        {/* ── Main Content ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Chart */}
+          <div className="lg:col-span-2 rounded-3xl glass-dashboard p-6 sm:p-8 relative overflow-hidden group">
+            <div
+              className={`absolute -top-24 -right-24 w-64 h-64 ${
+                isSme ? "bg-indigo-500/5" : "bg-emerald-500/5"
+              } rounded-full blur-[100px] transition-all group-hover:scale-110 duration-1000`}
+            />
 
-        {/* ── Charts Row ── */}
-        {hasAnyData && (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 lg:grid-cols-3 gap-4"
-          >
-            {/* Revenue vs Expenses Chart */}
-            <motion.div
-              variants={itemVariants}
-              className="lg:col-span-2 rounded-2xl glass-dashboard p-5 sm:p-6"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-foreground/80">Income vs Expenses</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Monthly comparison</p>
-                </div>
-                <div className="flex rounded-xl bg-muted/40 p-1">
-                  {(["week", "month", "year"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setTimeFilter(t)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                        timeFilter === t
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {t.charAt(0).toUpperCase() + t.slice(1)}
-                    </button>
-                  ))}
-                </div>
+            <div className="flex items-center justify-between mb-8 relative z-10">
+              <div>
+                <h2 className="text-lg font-black text-foreground uppercase tracking-tight">
+                  {isSme ? "Cash Flow Analysis" : "Income vs Expense"}
+                </h2>
+                <p className="text-xs font-bold text-muted-foreground mt-1 opacity-70">
+                  Last 6 Months Performance
+                </p>
               </div>
+            </div>
 
-              {chartData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-60 gap-3 text-muted-foreground">
-                  <LayoutDashboard className="h-8 w-8 opacity-30" />
-                  <p className="text-sm">Add entries to see chart data</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={260}>
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="gradIncome" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gradExpenses" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.2} />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: "var(--color-muted-foreground)", fontSize: 11, fontWeight: 600 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fill: "var(--color-muted-foreground)", fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
-                    />
-                    <ReTooltip content={<ChartTooltip />} />
-                    <Area
-                      type="monotone"
-                      dataKey="Income"
-                      stroke="#22c55e"
-                      strokeWidth={2.5}
-                      fill="url(#gradIncome)"
-                      dot={{ r: 4, fill: "#22c55e", stroke: "var(--color-card)", strokeWidth: 2 }}
-                      activeDot={{ r: 6, stroke: "#22c55e", strokeWidth: 2 }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="Expenses"
-                      stroke="#ef4444"
-                      strokeWidth={2.5}
-                      fill="url(#gradExpenses)"
-                      dot={{ r: 4, fill: "#ef4444", stroke: "var(--color-card)", strokeWidth: 2 }}
-                      activeDot={{ r: 6, stroke: "#ef4444", strokeWidth: 2 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </motion.div>
+            <div className="h-[320px] w-full relative z-10">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="gradPrimary" x1="0" y1="0" x2="0" y2="1">
+                      <stop
+                        offset="5%"
+                        stopColor={isSme ? "#6366f1" : "#10b981"}
+                        stopOpacity={0.3}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor={isSme ? "#6366f1" : "#10b981"}
+                        stopOpacity={0}
+                      />
+                    </linearGradient>
+                    <linearGradient id="gradSecondary" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#f43f5e" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="4 4"
+                    stroke="var(--color-border)"
+                    opacity={0.1}
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fill: "var(--color-muted-foreground)", fontSize: 12, fontWeight: 700 }}
+                    axisLine={false}
+                    tickLine={false}
+                    dy={10}
+                  />
+                  <YAxis
+                    tick={{ fill: "var(--color-muted-foreground)", fontSize: 10, fontWeight: 600 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v)}
+                  />
+                  <ReTooltip content={<ChartTooltip />} />
+                  <Area
+                    type="monotone"
+                    dataKey="Primary"
+                    stroke={isSme ? "#6366f1" : "#10b981"}
+                    strokeWidth={4}
+                    fill="url(#gradPrimary)"
+                    activeDot={{ r: 6, strokeWidth: 0 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="Secondary"
+                    stroke="#f43f5e"
+                    strokeWidth={3}
+                    strokeDasharray="8 8"
+                    fill="url(#gradSecondary)"
+                    activeDot={{ r: 4, strokeWidth: 0 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
-            {/* Expense Breakdown */}
-            <motion.div variants={itemVariants} className="rounded-2xl glass-dashboard p-5 sm:p-6">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-1">
-                Expense Breakdown
-              </h2>
-              <p className="text-xs text-muted-foreground mb-5">Top categories</p>
-
-              {categoryData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-52 gap-3 text-muted-foreground">
-                  <Wallet className="h-8 w-8 opacity-30" />
-                  <p className="text-sm">No expense data</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={240}>
-                  <BarChart data={categoryData} layout="vertical" barCategoryGap="20%">
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.15} horizontal={false} />
-                    <XAxis
-                      type="number"
-                      tick={{ fill: "var(--color-muted-foreground)", fontSize: 10 }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      tick={{ fill: "var(--color-muted-foreground)", fontSize: 11, fontWeight: 500 }}
-                      axisLine={false}
-                      tickLine={false}
-                      width={80}
-                    />
-                    <ReTooltip content={<ChartTooltip />} />
-                    <Bar
-                      dataKey="amount"
-                      name="Amount"
-                      fill="url(#barGrad)"
-                      radius={[0, 8, 8, 0]}
-                    />
-                    <defs>
-                      <linearGradient id="barGrad" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%" stopColor="#8B6BFF" />
-                        <stop offset="100%" stopColor="#00E5BB" />
-                      </linearGradient>
-                    </defs>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-
-        {/* ── Transactions + Activity Row ── */}
-        {hasAnyData && (
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 lg:grid-cols-5 gap-4"
-          >
-            {/* Recent Transactions Table */}
-            <motion.div
-              variants={itemVariants}
-              className="lg:col-span-3 rounded-2xl glass-dashboard overflow-hidden"
-            >
-              <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-border/30">
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-foreground/80">Recent Transactions</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Latest activity</p>
-                </div>
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-muted-foreground hover:text-foreground rounded-lg"
-                >
-                  <Link href="/tracker/income">View all →</Link>
-                </Button>
-              </div>
-
-              {recentTransactions.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-                  <ShoppingCart className="h-8 w-8 opacity-30" />
-                  <p className="text-sm">No transactions yet</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-border/20">
-                  {recentTransactions.map((tx, i) => (
-                    <motion.div
-                      key={tx.id + i}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.06, duration: 0.3, ease }}
-                      className="flex items-center justify-between px-5 sm:px-6 py-3.5 hover:bg-muted/10 transition-colors group cursor-default"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                          tx.type === "income" ? "bg-emerald-500/10" : "bg-rose-500/10"
-                        }`}>
-                          {tx.type === "income" ? (
-                            <TrendingUp className="h-4 w-4 text-emerald-500" />
-                          ) : (
-                            <TrendingDown className="h-4 w-4 text-rose-500" />
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold text-foreground truncate">{tx.description}</div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] capitalize bg-muted px-2 py-0.5 rounded-md font-medium text-foreground/70">
-                              {tx.category.replace(/_/g, " ")}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">{formatDate(tx.date)}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className={`text-sm font-bold tabular-nums ${
-                          tx.type === "income" ? "text-emerald-500" : "text-foreground"
-                        }`}>
-                          {tx.type === "income" ? "+" : "-"}{formatCurrency(tx.amount, tx.currency)}
-                        </span>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-
+          {/* Side Panel */}
+          <div className="space-y-6">
             {/* Activity Feed */}
-            <motion.div
-              variants={itemVariants}
-              className="lg:col-span-2 rounded-2xl glass-dashboard p-5 sm:p-6"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-foreground/80">Activity</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Recent events</p>
-                </div>
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Clock className="h-4 w-4 text-primary" />
+            <div className="rounded-3xl glass-dashboard p-6 sm:p-7 h-full">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-sm font-black text-foreground uppercase tracking-widest">
+                  Live Activity
+                </h2>
+                <div
+                  className={`w-8 h-8 rounded-xl ${
+                    isSme ? "bg-indigo-500/10" : "bg-emerald-500/10"
+                  } flex items-center justify-center`}
+                >
+                  <Activity
+                    className={`h-4 w-4 ${isSme ? "text-indigo-500" : "text-emerald-500"}`}
+                  />
                 </div>
               </div>
 
-              {activityFeed.length === 0 ? (
+              <div className="space-y-1 relative">
+                {activityFeed.map((event, i) => (
+                  <ActivityItem key={event.id + i} event={event} index={i} />
+                ))}
+                {activityFeed.length === 0 && (
+                  <div className="text-center py-12">
+                    <p className="text-sm text-muted-foreground font-bold italic">
+                      No recent activity
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <Button
+                asChild
+                variant="ghost"
+                className="w-full mt-6 rounded-2xl text-xs font-bold text-muted-foreground hover:text-foreground"
+              >
+                <Link href="/tracker/report">Full AI Report →</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.main>
+  );
+}
                 <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground">
                   <Activity className="h-8 w-8 opacity-30" />
                   <p className="text-sm">No recent activity</p>
