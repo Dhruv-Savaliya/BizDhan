@@ -230,20 +230,28 @@ export default function ExpensePage() {
         body: ocrFormData,
       });
 
-      const json = (await res.json()) as
+      let json: any;
+      try {
+        json = await res.json();
+      } catch (err) {
+        const isTimeout = res.status === 504;
+        throw new Error(isTimeout ? "Scan took too long to complete. Please try a smaller image or enter manually." : `Server error (${res.status})`);
+      }
+
+      const responseData = json as
         | { success: true; data: OcrPayload; modelUsed?: OcrModelUsed }
         | { success: false; error?: string };
 
-      if (!res.ok || !json.success) {
+      if (!res.ok || !responseData.success) {
         const errorMsg =
-          "error" in json && typeof json.error === "string"
-            ? json.error
+          "error" in responseData && typeof responseData.error === "string"
+            ? responseData.error
             : "Failed to scan receipt. Please fill manually.";
         toast.warning(`AI Scan: ${errorMsg}. Please fill details manually.`);
         return;
       }
 
-      const scanned = json.data;
+      const scanned = responseData.data;
       if (typeof scanned.amount === "number" && Number.isFinite(scanned.amount)) {
         form.setValue("amount", scanned.amount, { shouldValidate: true });
       }

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { verifyAuthToken } from "@/lib/jwt";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY ?? "";
 const GROQ_MODEL = process.env.RECEIPT_LLM_MODEL || "llama-3.1-70b-versatile";
