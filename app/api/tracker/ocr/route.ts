@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { verifyAuthToken } from "@/lib/jwt";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -10,8 +11,13 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY ?? "";
 const GROQ_MODEL = process.env.RECEIPT_LLM_MODEL || "llama-3.1-70b-versatile";
 const GROQ_RATE_LIMIT_MAX = 20;
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
+
 const GROQ_TEXT_PROMPT =
   "You are a receipt parser. Extract expense data from the following receipt text and return ONLY a valid JSON object with these fields: amount (number), date (YYYY-MM-DD string), merchant (string), category (one of: Food, Groceries, Transport, Utilities, Shopping, Healthcare, Entertainment, Other), notes (string, brief description). If a field cannot be determined, use null. Return only the JSON object, no explanation, no markdown.\n\nReceipt text:\n{TEXT}";
+
+const GEMINI_VISION_PROMPT =
+  "You are a receipt parser. Extract expense data from the provided receipt image and return ONLY a valid JSON object with these fields: amount (number), date (YYYY-MM-DD string), merchant (string), category (one of: Food, Groceries, Transport, Utilities, Shopping, Healthcare, Entertainment, Other), notes (string, brief description). If a field cannot be determined, use null. Return only the JSON object, no explanation, no markdown.";
 
 const structuredExpenseSchema = z.object({
   amount: z.number().positive().nullable(),
@@ -34,8 +40,8 @@ const structuredExpenseSchema = z.object({
 
 type StructuredExpense = z.infer<typeof structuredExpenseSchema>;
 
-type ModelName = "groq";
-type ModelUsed = "tesseract+groq" | "pdfjs+groq";
+type ModelName = "groq" | "gemini";
+type ModelUsed = "tesseract+groq" | "pdfjs+groq" | "gemini-vision";
 
 type Counter = { count: number; resetAt: number };
 
@@ -148,17 +154,28 @@ async function extractTextFromPdf(fileBuffer: Buffer): Promise<string> {
   return fullText;
 }
 
-async function extractTextFromImage(fileBuffer: Buffer): Promise<{ text: string; confidence: number }> {
-  const { default: Tesseract } = await import("tesseract.js");
-  const result = await Tesseract.recognize(fileBuffer, "eng");
-  const text = result.data.text?.trim() ?? "";
-  const confidence = Number.isFinite(result.data.confidence) ? result.data.confidence : 0;
+async function callGeminiVisionForJson(fileBuffer: Buffer, mimeType: string): Promise<StructuredExpense> {
+  if (!GEMINI_API_KEY) throw new Error("Missing GEMINI_API_KEY");
 
-  if (!text) {
-    throw new Error("Unable to read text from image");
+  const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+  const imagePart = {
+    inlineData: {
+      data: fileBuffer.toString("base64"),
+      mimeType,
+    },
+  };
+
+  const result = await model.generateContent([GEMINI_VISION_PROMPT, imagePart]);
+  const response = await result.response;
+  const content = response.text();
+
+  if (!content) {
+    throw new Error("Unexpected AI response format");
   }
 
-  return { text, confidence };
+  return parseJsonSafely(content);
 }
 
 async function callGroqForJson(receiptText: string): Promise<StructuredExpense> {
@@ -265,16 +282,18 @@ export async function POST(request: Request) {
       }
     }
 
-    const { text: ocrText, confidence } = await extractTextFromImage(fileBuffer);
-    if (confidence < 20) {
-      return jsonError("Unable to extract readable text from image.", 422);
+    if (!GEMINI_API_KEY) {
+      return jsonError("Gemini Vision service is not configured.", 503);
+    }
+    if (!consumeRateLimit(userId, "gemini", GROQ_RATE_LIMIT_MAX)) {
+      return jsonError("Too many OCR requests. Please wait a moment and try again.", 429);
     }
 
     try {
-      const data = await callGroqForJson(ocrText);
-      return successResponse(data, "tesseract+groq");
+      const data = await callGeminiVisionForJson(fileBuffer, file.type);
+      return successResponse(data, "gemini-vision");
     } catch (error) {
-      console.error("[OCR] Groq image failed:", error instanceof Error ? error.message : error);
+      console.error("[OCR] Gemini image failed:", error instanceof Error ? error.message : error);
       if (error instanceof HttpStatusError && error.status === 429) {
         return jsonError("AI extraction unavailable right now. Please try again shortly.", 429);
       }
