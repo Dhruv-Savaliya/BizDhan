@@ -33,7 +33,8 @@ export function normalizeIncomeInput(input: {
     if (Number.isNaN(receivedAtDate.getTime())) {
       throw new Error("Invalid date");
     }
-    if (receivedAtDate.getTime() > now) {
+    // Allow up to 24 hours of drift for timezone differences
+    if (receivedAtDate.getTime() > now + 24 * 60 * 60 * 1000) {
       throw new Error("Date cannot be in the future");
     }
     receivedAt = receivedAtDate.toISOString();

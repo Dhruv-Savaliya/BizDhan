@@ -81,7 +81,8 @@ export function normalizeInvoiceInput(input: {
     if (Number.isNaN(issuedAtDate.getTime())) {
       throw new Error("Invalid issue date");
     }
-    if (issuedAtDate.getTime() > now) {
+    // Allow up to 24 hours of drift for timezone differences
+    if (issuedAtDate.getTime() > now + 24 * 60 * 60 * 1000) {
       throw new Error("Issue date cannot be in the future");
     }
     issuedAt = issuedAtDate.toISOString();
@@ -93,9 +94,6 @@ export function normalizeInvoiceInput(input: {
     const dueAtDate = new Date(dueAtRaw);
     if (Number.isNaN(dueAtDate.getTime())) {
       throw new Error("Invalid due date");
-    }
-    if (dueAtDate.getTime() > now) {
-      throw new Error("Due date cannot be in the future");
     }
     dueAt = dueAtDate.toISOString();
   }

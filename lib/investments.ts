@@ -34,7 +34,8 @@ export function normalizeInvestmentInput(input: {
     if (Number.isNaN(investedAtDate.getTime())) {
       throw new Error("Invalid date");
     }
-    if (investedAtDate.getTime() > now) {
+    // Allow up to 24 hours of drift for timezone differences
+    if (investedAtDate.getTime() > now + 24 * 60 * 60 * 1000) {
       throw new Error("Date cannot be in the future");
     }
     investedAt = investedAtDate.toISOString();

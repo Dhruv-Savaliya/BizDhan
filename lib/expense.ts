@@ -34,7 +34,8 @@ export function normalizeExpenseInput(input: {
     if (Number.isNaN(spentAtDate.getTime())) {
       throw new Error("Invalid date");
     }
-    if (spentAtDate.getTime() > now) {
+    // Allow up to 24 hours of drift for timezone differences
+    if (spentAtDate.getTime() > now + 24 * 60 * 60 * 1000) {
       throw new Error("Date cannot be in the future");
     }
     spentAt = spentAtDate.toISOString();

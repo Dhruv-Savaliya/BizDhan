@@ -48,7 +48,8 @@ export function normalizePurchaseInput(input: {
     if (Number.isNaN(purchasedAtDate.getTime())) {
       throw new Error("Invalid date");
     }
-    if (purchasedAtDate.getTime() > now) {
+    // Allow up to 24 hours of drift for timezone differences
+    if (purchasedAtDate.getTime() > now + 24 * 60 * 60 * 1000) {
       throw new Error("Date cannot be in the future");
     }
     purchasedAt = purchasedAtDate.toISOString();
