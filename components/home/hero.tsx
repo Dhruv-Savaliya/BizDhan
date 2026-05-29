@@ -198,7 +198,7 @@ export function Hero() {
               y: dashboardY,
               transformStyle: "preserve-3d",
             }}
-            className="relative w-full aspect-[16/10] rounded-[2.5rem] p-4 bg-gradient-to-br from-background/30 to-transparent backdrop-blur-3xl border border-border dark:border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.1)] dark:shadow-[0_50px_100px_-20px_rgba(45,212,191,0.2)] overflow-hidden"
+            className="relative w-full aspect-[4/5] sm:aspect-[4/3] lg:aspect-[16/10] rounded-[2.5rem] p-4 bg-gradient-to-br from-background/30 to-transparent backdrop-blur-3xl border border-border dark:border-white/10 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.1)] dark:shadow-[0_50px_100px_-20px_rgba(45,212,191,0.2)] overflow-hidden"
           >
             {/* Glossy Overlay */}
             <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-accent/5 opacity-50 z-20 pointer-events-none" />
@@ -267,9 +267,9 @@ export function Hero() {
                 </div>
 
                 {/* Chart + Transactions Layout */}
-                <div className="flex-1 grid grid-cols-12 gap-3 sm:gap-4 min-h-0">
+                <div className="flex-1 flex flex-col sm:grid sm:grid-cols-12 gap-3 sm:gap-4 min-h-0">
                   {/* Animated Line Chart */}
-                  <div className="col-span-7 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/5 p-3 sm:p-5 flex flex-col">
+                  <div className="sm:col-span-7 flex-1 sm:flex-auto rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/5 p-3 sm:p-5 flex flex-col">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Revenue Overview</span>
                       <div className="flex gap-1">
@@ -335,7 +335,7 @@ export function Hero() {
                   </div>
 
                   {/* Transaction Snippet */}
-                  <div className="col-span-5 rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/5 p-3 sm:p-4 flex flex-col">
+                  <div className="sm:col-span-5 flex-1 sm:flex-auto rounded-xl sm:rounded-2xl bg-white/[0.02] border border-white/5 p-3 sm:p-4 flex flex-col">
                     <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3">Recent Activity</span>
                     <div className="flex-1 space-y-2">
                       {[
