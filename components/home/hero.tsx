@@ -96,7 +96,7 @@ export function Hero() {
     <section
       ref={containerRef}
       onMouseMove={handleMouseMove}
-      className="relative min-h-[160vh] flex flex-col items-center pt-40 md:pt-48 pb-60 overflow-hidden bg-background selection:bg-primary/30"
+      className="relative min-h-[160vh] flex flex-col items-center pt-32 sm:pt-40 pb-32 md:pb-48 lg:pb-60 overflow-hidden bg-background selection:bg-primary/30 w-full max-w-[100vw]"
     >
       {/* Dynamic Mesh Gradient Background */}
       <div className="absolute inset-x-0 top-0 h-[1000px] pointer-events-none -z-10 translate-y-[-20%]">
@@ -129,7 +129,7 @@ export function Hero() {
 
         {/* Shimmering Headline */}
         <motion.h1
-          className="text-6xl md:text-8xl lg:text-9xl font-black tracking-[-0.05em] mb-8 max-w-[1200px] leading-[0.95]"
+          className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-9xl font-black tracking-[-0.05em] mb-6 sm:mb-8 max-w-[1200px] leading-[0.95]"
           initial={{ opacity: 0, y: 50, filter: "blur(10px)" }}
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           transition={{ duration: 1.2, ease, delay: 0.2 }}
@@ -150,7 +150,7 @@ export function Hero() {
 
         {/* Sharp description */}
         <motion.p
-          className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl font-medium tracking-tight leading-relaxed"
+          className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-10 sm:mb-12 max-w-3xl font-medium tracking-tight leading-relaxed px-4 sm:px-0"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.5 }}
@@ -169,7 +169,7 @@ export function Hero() {
             size="lg"
             href={HERO_CONTENT.ctas.primary.href}
             asChild
-            className="group w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground text-xl h-16 px-10 font-black rounded-2xl shadow-[0_20px_50px_rgba(45,212,191,0.3)] transition-all duration-300"
+            className="group w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground text-lg sm:text-xl h-14 sm:h-16 px-8 sm:px-10 font-black rounded-2xl shadow-[0_20px_50px_rgba(45,212,191,0.3)] transition-all duration-300"
           >
             {HERO_CONTENT.ctas.primary.label}
             <ArrowRight className="ml-3 h-6 w-6 group-hover:translate-x-2 transition-transform" />
@@ -180,7 +180,7 @@ export function Hero() {
             variant="outline"
             href={HERO_CONTENT.ctas.secondary.href}
             asChild
-            className="w-full sm:w-auto border-border dark:border-white/10 bg-background/5 dark:bg-white/5 backdrop-blur-xl text-foreground hover:bg-muted dark:hover:bg-white/10 text-xl h-16 px-10 font-black rounded-2xl transition-all duration-300"
+            className="w-full sm:w-auto border-border dark:border-white/10 bg-background/5 dark:bg-white/5 backdrop-blur-xl text-foreground hover:bg-muted dark:hover:bg-white/10 text-lg sm:text-xl h-14 sm:h-16 px-8 sm:px-10 font-black rounded-2xl transition-all duration-300"
           >
             {HERO_CONTENT.ctas.secondary.label}
           </MagneticButton>
@@ -230,7 +230,7 @@ export function Hero() {
                       </div>
                       <span className="text-[9px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Revenue</span>
                     </div>
-                    <div className="text-base sm:text-xl lg:text-2xl font-black text-foreground tabular-nums tracking-tight">$48,750</div>
+                    <div className="text-sm sm:text-xl lg:text-2xl font-black text-foreground tabular-nums tracking-tight">$48,750</div>
                     <div className="flex items-center gap-1 mt-1">
                       <span className="text-[9px] sm:text-[10px] font-bold text-emerald-400">↑ 12.5%</span>
                       <span className="text-[8px] sm:text-[9px] text-muted-foreground/60">vs last mo</span>
@@ -244,7 +244,7 @@ export function Hero() {
                       </div>
                       <span className="text-[9px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Expenses</span>
                     </div>
-                    <div className="text-base sm:text-xl lg:text-2xl font-black text-foreground tabular-nums tracking-tight">$12,340</div>
+                    <div className="text-sm sm:text-xl lg:text-2xl font-black text-foreground tabular-nums tracking-tight">$12,340</div>
                     <div className="flex items-center gap-1 mt-1">
                       <span className="text-[9px] sm:text-[10px] font-bold text-rose-400">↑ 3.2%</span>
                       <span className="text-[8px] sm:text-[9px] text-muted-foreground/60">vs last mo</span>
@@ -258,7 +258,7 @@ export function Hero() {
                       </div>
                       <span className="text-[9px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Growth</span>
                     </div>
-                    <div className="text-base sm:text-xl lg:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent tabular-nums tracking-tight">+24.8%</div>
+                    <div className="text-sm sm:text-xl lg:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent tabular-nums tracking-tight">+24.8%</div>
                     <div className="flex items-center gap-1 mt-1">
                       <span className="text-[9px] sm:text-[10px] font-bold text-emerald-400">↑ 4.1%</span>
                       <span className="text-[8px] sm:text-[9px] text-muted-foreground/60">vs last mo</span>
@@ -372,7 +372,7 @@ export function Hero() {
           {/* 3D Floating Widgets */}
           <motion.div
             style={{ y: widget1Y, translateZ: 100 }}
-            className="absolute -right-12 top-1/4 p-6 rounded-3xl bg-card/70 dark:bg-black/40 backdrop-blur-3xl border border-border dark:border-white/10 shadow-2xl z-30 hidden lg:block"
+            className="absolute -right-4 xl:-right-12 top-1/4 p-4 lg:p-6 rounded-2xl lg:rounded-3xl bg-card/70 dark:bg-black/40 backdrop-blur-3xl border border-border dark:border-white/10 shadow-2xl z-30 hidden lg:block"
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center text-primary">
@@ -390,7 +390,7 @@ export function Hero() {
 
           <motion.div
             style={{ y: widget2Y, translateZ: 150 }}
-            className="absolute -left-16 bottom-1/3 p-6 rounded-3xl bg-card/70 dark:bg-black/40 backdrop-blur-3xl border border-border dark:border-white/10 shadow-2xl z-30 hidden lg:block"
+            className="absolute -left-4 xl:-left-16 bottom-1/3 p-4 lg:p-6 rounded-2xl lg:rounded-3xl bg-card/70 dark:bg-black/40 backdrop-blur-3xl border border-border dark:border-white/10 shadow-2xl z-30 hidden lg:block"
           >
              <div className="w-14 h-14 rounded-2xl bg-accent/20 flex items-center justify-center text-accent mb-4">
                 <PieChart />
@@ -401,7 +401,7 @@ export function Hero() {
           
           <motion.div
             style={{ y: widget3Y, translateZ: 200 }}
-            className="absolute right-1/4 -bottom-10 h-16 px-8 rounded-full bg-accent text-accent-foreground shadow-[0_20px_50px_rgba(255,255,255,0.2)] flex items-center gap-4 z-40 border border-white/20 hidden md:flex"
+            className="absolute right-10 xl:right-1/4 -bottom-6 xl:-bottom-10 h-12 xl:h-16 px-6 xl:px-8 rounded-full bg-accent text-accent-foreground shadow-[0_20px_50px_rgba(255,255,255,0.2)] flex items-center gap-3 xl:gap-4 z-40 border border-white/20 hidden md:flex"
           >
              <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-accent">
                 <Plus strokeWidth={3} className="h-4 w-4" />

@@ -141,13 +141,13 @@ export function Navbar() {
       <div className="flex justify-center w-full pt-4 md:pt-6">
         <motion.div
           animate={{
-            width: scrolled ? "auto" : "90%",
+            width: scrolled ? "auto" : "95%",
             maxWidth: scrolled ? "850px" : "1400px",
             height: scrolled ? "64px" : "72px",
             borderRadius: scrolled ? "50px" : "24px",
             y: scrolled ? 10 : 0,
-            paddingLeft: scrolled ? "32px" : "24px",
-            paddingRight: scrolled ? "12px" : "24px",
+            paddingLeft: scrolled ? "clamp(16px, 4vw, 32px)" : "clamp(16px, 4vw, 24px)",
+            paddingRight: scrolled ? "clamp(12px, 2vw, 12px)" : "clamp(16px, 4vw, 24px)",
           }}
           transition={{ duration: 0.6, ease }}
           className={`pointer-events-auto flex items-center justify-between transition-all border shadow-2xl ${
