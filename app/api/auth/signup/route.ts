@@ -11,8 +11,10 @@ import { createWorkspacesForSignup } from "@/lib/workspaces";
 
 export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? "unknown";
+  let stage = "database_initialization";
   try {
     const db = await getDb();
+    stage = "parse_request";
     const body = await request.json();
     const { fullName, email, password, signupMode, ...rawBodyFields } = body as {
       fullName?: string;
@@ -34,7 +36,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const existingUser = await db.findUserByEmail(email);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !password || !fullName.trim()) {
+      return NextResponse.json(
+        { message: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    stage = "user_lookup";
+    const existingUser = await db.findUserByEmail(normalizedEmail);
     if (existingUser) {
       return NextResponse.json(
         { message: "User already exists" },
@@ -58,7 +69,7 @@ export async function POST(request: Request) {
     const newUser: User = {
       id: uuidv4(),
       fullName,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       passwordHash,
       role: "user",
       signupMode: normalizedSignupMode,
@@ -70,6 +81,7 @@ export async function POST(request: Request) {
       ...extras,
     };
 
+    stage = "create_user";
     const createdUser = await db.createUser(newUser);
     if (!createdUser) {
       return NextResponse.json(
@@ -78,6 +90,7 @@ export async function POST(request: Request) {
       );
     }
 
+    stage = "workspace_setup";
     const mongo = await getMongoDb();
     const workspaceResult = await createWorkspacesForSignup({
       db: mongo,
@@ -86,17 +99,23 @@ export async function POST(request: Request) {
       signupMode: normalizedSignupMode,
     });
 
+    stage = "save_workspace_settings";
     await db.updateUser(createdUser.id, {
       enabledWorkspaceKinds: workspaceResult.enabledWorkspaceKinds,
       workspaceIds: workspaceResult.workspaceIds,
       defaultWorkspaceId: workspaceResult.defaultWorkspaceId,
     });
 
+    stage = "send_verification_email";
     try {
       const { sendOTPEmail } = await import("@/lib/email");
       await sendOTPEmail(createdUser.email, otp, "Verify your account");
     } catch (err) {
-      logger.error("Signup email error", { error: err });
+      logger.error("Signup email error", {
+        requestId,
+        stage,
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
       // We still return 201 because user is created, but maybe inform them?
     }
 
@@ -109,8 +128,10 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (err: unknown) {
-    logger.error("Unhandled error", {
+    logger.error("Signup failed", {
       requestId,
+      stage,
+      errorName: err instanceof Error ? err.name : "UnknownError",
       error: err instanceof Error ? err.message : "Unknown error",
       stack: err instanceof Error ? err.stack : undefined,
     });
