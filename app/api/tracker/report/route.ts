@@ -9,7 +9,7 @@ import type { IncomeEntry } from "@/types/income";
 import type { ExpenseEntry } from "@/types/expense";
 import type { InvestmentEntry } from "@/types/investment";
 
-const GROQ_MODEL = process.env.RECEIPT_LLM_MODEL || "openai/gpt-oss-120b";
+const GROQ_MODEL = "openai/gpt-oss-120b";
 
 export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? "unknown";
