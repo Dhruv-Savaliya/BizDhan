@@ -9,22 +9,34 @@ import type { IncomeEntry } from "@/types/income";
 import type { ExpenseEntry } from "@/types/expense";
 import type { InvestmentEntry } from "@/types/investment";
 
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.RECEIPT_LLM_MODEL || "llama-3.1-70b-versatile";
 
 export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? "unknown";
+  let stage = "authentication";
   try {
     const user = await getCurrentUserAction();
     if (!user) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-    if (!GROQ_API_KEY) {
-      return NextResponse.json({ message: "Missing GROQ_API_KEY" }, { status: 500 });
+    stage = "groq_configuration";
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) {
+      logger.error("Report generation failed", {
+        requestId,
+        stage,
+        errorName: "ConfigurationError",
+        error: "GROQ_API_KEY is not defined in the environment",
+      });
+      return NextResponse.json({ message: "AI report service is not configured. Please contact support." }, { status: 503 });
     }
 
+    stage = "workspace_resolution";
     const workspaceId = (await resolveActiveWorkspaceIdForUser(user)) ?? "default";
+
+    stage = "database_connection";
     const db = await getMongoDb();
 
+    stage = "tracker_data_lookup";
     const limit = 300;
     const [income, expense, investments] = await Promise.all([
       db
@@ -47,6 +59,7 @@ export async function POST(request: Request) {
         .toArray(),
     ]);
 
+    stage = "stats_calculation";
     const stats = computeTrackerStats({
       income,
       expense,
@@ -71,8 +84,9 @@ export async function POST(request: Request) {
       2
     );
 
+    stage = "groq_api_request";
     const report = await groqChat({
-      apiKey: GROQ_API_KEY,
+      apiKey: groqApiKey,
       model: GROQ_MODEL,
       temperature: 0.2,
       maxTokens: 2048,
@@ -114,12 +128,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ report, stats }, { status: 200 });
   } catch (err: unknown) {
-    logger.error("Unhandled error", {
+    logger.error("Report generation failed", {
       requestId,
+      stage,
+      errorName: err instanceof Error ? err.name : "UnknownError",
       error: err instanceof Error ? err.message : "Unknown error",
       stack: err instanceof Error ? err.stack : undefined,
     });
     return NextResponse.json({ error: "Internal server error", requestId }, { status: 500 });
   }
 }
-
