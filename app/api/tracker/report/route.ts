@@ -9,7 +9,7 @@ import type { IncomeEntry } from "@/types/income";
 import type { ExpenseEntry } from "@/types/expense";
 import type { InvestmentEntry } from "@/types/investment";
 
-const GROQ_MODEL = process.env.RECEIPT_LLM_MODEL || "llama-3.1-70b-versatile";
+const GROQ_MODEL = process.env.RECEIPT_LLM_MODEL || "openai/gpt-oss-120b";
 
 export async function POST(request: Request) {
   const requestId = request.headers.get("x-request-id") ?? "unknown";
@@ -39,50 +39,26 @@ export async function POST(request: Request) {
     stage = "tracker_data_lookup";
     const limit = 300;
     const [income, expense, investments] = await Promise.all([
-      db
-        .collection<IncomeEntry>("income_entries")
-        .find({ userId: user.id, workspaceId })
-        .sort({ receivedAt: -1, created_at: -1 })
-        .limit(limit)
-        .toArray(),
-      db
-        .collection<ExpenseEntry>("expense_entries")
-        .find({ userId: user.id, workspaceId })
-        .sort({ spentAt: -1, created_at: -1 })
-        .limit(limit)
-        .toArray(),
-      db
-        .collection<InvestmentEntry>("investment_entries")
-        .find({ userId: user.id, workspaceId })
-        .sort({ investedAt: -1, created_at: -1 })
-        .limit(limit)
-        .toArray(),
+      db.collection<IncomeEntry>("income_entries").find({ userId: user.id, workspaceId }).sort({ receivedAt: -1, created_at: -1 }).limit(limit).toArray(),
+      db.collection<ExpenseEntry>("expense_entries").find({ userId: user.id, workspaceId }).sort({ spentAt: -1, created_at: -1 }).limit(limit).toArray(),
+      db.collection<InvestmentEntry>("investment_entries").find({ userId: user.id, workspaceId }).sort({ investedAt: -1, created_at: -1 }).limit(limit).toArray(),
     ]);
 
     stage = "stats_calculation";
-    const stats = computeTrackerStats({
-      income,
-      expense,
-      investments,
-    });
-
-    const prompt = JSON.stringify(
-      {
-        workspaceId,
-        generatedAt: new Date().toISOString(),
-        counts: stats.counts,
-        totals: stats.totals,
-        tops: stats.tops,
-        latest: stats.latest,
-        sample: {
-          income: income.slice(0, 30),
-          expense: expense.slice(0, 30),
-          investments: investments.slice(0, 30),
-        },
+    const stats = computeTrackerStats({ income, expense, investments });
+    const prompt = JSON.stringify({
+      workspaceId,
+      generatedAt: new Date().toISOString(),
+      counts: stats.counts,
+      totals: stats.totals,
+      tops: stats.tops,
+      latest: stats.latest,
+      sample: {
+        income: income.slice(0, 30),
+        expense: expense.slice(0, 30),
+        investments: investments.slice(0, 30),
       },
-      null,
-      2
-    );
+    }, null, 2);
 
     stage = "groq_api_request";
     const report = await groqChat({
@@ -93,34 +69,33 @@ export async function POST(request: Request) {
       messages: [
         {
           role: "system",
-          content:
-            [
-              "You are a finance analyst generating a professional report for a finance tracking app.",
-              "Return STRICT JSON only (no markdown, no code fences, no text before or after the JSON object).",
-              "Use this exact shape:",
-              "{",
-              '  "title": string,',
-              '  "generatedAt": string (ISO),',
-              '  "executiveSummary": string[],',
-              '  "kpis": Array<{ "label": string, "currency": string, "value": number }>,',
-              '  "tables": {',
-              '    "topIncomeSources": Array<{ "source": string, "currency": string, "total": number }>,',
-              '    "topExpenseCategories": Array<{ "category": string, "currency": string, "total": number }>,',
-              '    "topExpenseMerchants": Array<{ "merchant": string, "currency": string, "total": number }>,',
-              '    "investmentByType": Array<{ "type": string, "currency": string, "total": number }>',
-              "  },",
-              '  "highlights": string[],',
-              '  "risks": string[],',
-              '  "recommendations": string[],',
-              '  "nextSteps": string[]',
-              "}",
-              "Rules:",
-              "- Use ONLY numbers present in the input stats.",
-              "- Prefer crisp, professional language.",
-              "- If data is sparse, say what's missing and provide next steps.",
-              "- KPIs should include Income, Expense, Cashflow, Investments per currency (if present).",
-              "- Tables should take from the provided 'tops' stats, not from raw samples.",
-            ].join("\n"),
+          content: [
+            "You are a finance analyst generating a professional report for a finance tracking app.",
+            "Return STRICT JSON only (no markdown, no code fences, no text before or after the JSON object).",
+            "Use this exact shape:",
+            "{",
+            '  "title": string,',
+            '  "generatedAt": string (ISO),',
+            '  "executiveSummary": string[],',
+            '  "kpis": Array<{ "label": string, "currency": string, "value": number }>,',
+            '  "tables": {',
+            '    "topIncomeSources": Array<{ "source": string, "currency": string, "total": number }>,',
+            '    "topExpenseCategories": Array<{ "category": string, "currency": string, "total": number }>,',
+            '    "topExpenseMerchants": Array<{ "merchant": string, "currency": string, "total": number }>,',
+            '    "investmentByType": Array<{ "type": string, "currency": string, "total": number }>',
+            "  },",
+            '  "highlights": string[],',
+            '  "risks": string[],',
+            '  "recommendations": string[],',
+            '  "nextSteps": string[]',
+            "}",
+            "Rules:",
+            "- Use ONLY numbers present in the input stats.",
+            "- Prefer crisp, professional language.",
+            "- If data is sparse, say what's missing and provide next steps.",
+            "- KPIs should include Income, Expense, Cashflow, Investments per currency (if present).",
+            "- Tables should take from the provided 'tops' stats, not from raw samples.",
+          ].join("\n"),
         },
         { role: "user", content: prompt },
       ],
